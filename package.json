@@ -30,7 +30,10 @@
 		"build": "tsc",
 		"dev": "tsc --watch",
 		"prepare": "husky install",
-		"test": "echo ok"
+		"test": "bash test/run-tests.sh",
+		"test:unit": "node test/test-search-code.js",
+		"test:mcp": "node test/test-mcp.js",
+		"test:diagnostics": "node test/pampa-diagnostics.js"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.12.0",
