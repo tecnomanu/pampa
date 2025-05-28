@@ -23,7 +23,9 @@ const server = new McpServer({
     version: "0.4.0"
 });
 
+// ============================================================================
 // HERRAMIENTAS (TOOLS) - Permiten a los LLMs realizar acciones
+// ============================================================================
 
 /**
  * Herramienta para buscar código semánticamente
@@ -32,11 +34,12 @@ server.tool(
     "search_code",
     {
         query: z.string().describe("Consulta de búsqueda semántica (ej: 'función de autenticación', 'manejo de errores')"),
-        limit: z.number().optional().default(10).describe("Número máximo de resultados a devolver")
+        limit: z.number().optional().default(10).describe("Número máximo de resultados a devolver"),
+        provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
     },
-    async ({ query, limit }) => {
+    async ({ query, limit, provider }) => {
         try {
-            const results = await searchCode(query, limit);
+            const results = await searchCode(query, limit, provider);
 
             if (results.length === 0) {
                 return {
@@ -104,15 +107,16 @@ server.tool(
 server.tool(
     "index_project",
     {
-        path: z.string().optional().default(".").describe("Ruta del proyecto a indexar (por defecto: directorio actual)")
+        path: z.string().optional().default(".").describe("Ruta del proyecto a indexar (por defecto: directorio actual)"),
+        provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
     },
-    async ({ path: projectPath }) => {
+    async ({ path: projectPath, provider }) => {
         try {
-            await indexProject({ repoPath: projectPath });
+            await indexProject({ repoPath: projectPath, provider });
             return {
                 content: [{
                     type: "text",
-                    text: `✅ Proyecto indexado exitosamente en: ${projectPath}\n\n🔍 Ahora puedes usar search_code para buscar funciones y clases.`
+                    text: `✅ Proyecto indexado exitosamente en: ${projectPath}\n🧠 Proveedor: ${provider}\n\n🔍 Ahora puedes usar search_code para buscar funciones y clases.`
                 }]
             };
         } catch (error) {
@@ -194,13 +198,15 @@ server.tool(
     }
 );
 
+// ============================================================================
 // RECURSOS (RESOURCES) - Exponen datos del proyecto
+// ============================================================================
 
 /**
  * Recurso para obtener el mapa de código del proyecto
  */
 server.resource(
-    "project_codemap",
+    "codemap",
     "pampa://codemap",
     async (uri) => {
         try {
@@ -238,7 +244,7 @@ server.resource(
  * Recurso para obtener resumen del proyecto
  */
 server.resource(
-    "project_overview",
+    "overview",
     "pampa://overview",
     async (uri) => {
         try {
@@ -274,7 +280,9 @@ server.resource(
     }
 );
 
+// ============================================================================
 // PROMPTS - Plantillas reutilizables para interacciones con LLMs
+// ============================================================================
 
 /**
  * Prompt para analizar código encontrado
@@ -326,7 +334,6 @@ server.prompt(
     })
 );
 
-// Iniciar el servidor
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);

@@ -5,7 +5,7 @@
 	"type": "module",
 	"bin": {
 		"pampa": "./cli.js",
-		"pampa-server": "./pampa-server.js"
+		"pampa-mcp": "./pampa-server.js"
 	},
 	"files": [
 		"cli.js",
