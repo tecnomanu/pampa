@@ -1,6 +1,6 @@
 # PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto
 
-**Versión 0.4.0** · **Compatible con MCP** · **Node.js**
+**Versión 0.4.1** · **Compatible con MCP** · **Node.js**
 
 Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – en un comando `npx`.
 
