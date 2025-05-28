@@ -52,6 +52,10 @@
 		"ollama": "^0.5.0"
 	},
 	"devDependencies": {
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^11.0.2",
+		"@semantic-release/npm": "^12.0.1",
 		"@types/node": "^20.0.0",
 		"typescript": "^5.0.0",
 		"husky": "^8.0.0",
@@ -67,7 +71,7 @@
 	],
 	"release": {
 		"branches": [
-			"main"
+			"master"
 		],
 		"plugins": [
 			"@semantic-release/commit-analyzer",
