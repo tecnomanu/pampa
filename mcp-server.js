@@ -7,6 +7,96 @@ import path from 'path';
 import { z } from 'zod';
 import { getChunk, indexProject, searchCode } from './indexer.js';
 
+// ============================================================================
+// SISTEMA DE LOGGING DE ERRORES
+// ============================================================================
+
+class ErrorLogger {
+    constructor(logFile = 'pampa_error.log') {
+        this.logFile = logFile;
+        this.ensureLogDirectory();
+    }
+
+    ensureLogDirectory() {
+        const logDir = path.dirname(this.logFile);
+        if (logDir !== '.' && !fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+    }
+
+    log(error, context = {}) {
+        const timestamp = new Date().toISOString();
+        const errorInfo = {
+            timestamp,
+            message: error.message,
+            stack: error.stack,
+            context,
+            type: error.constructor.name
+        };
+
+        const logEntry = `[${timestamp}] ERROR: ${error.message}\n` +
+            `Context: ${JSON.stringify(context, null, 2)}\n` +
+            `Stack: ${error.stack}\n` +
+            `${'='.repeat(80)}\n\n`;
+
+        try {
+            fs.appendFileSync(this.logFile, logEntry);
+            console.error(`❌ Error logged to ${this.logFile}:`, error.message);
+        } catch (logError) {
+            console.error('❌ Failed to write to error log:', logError.message);
+            console.error('❌ Original error:', error.message);
+        }
+    }
+
+    async logAsync(error, context = {}) {
+        const timestamp = new Date().toISOString();
+        const logEntry = `[${timestamp}] ASYNC ERROR: ${error.message}\n` +
+            `Context: ${JSON.stringify(context, null, 2)}\n` +
+            `Stack: ${error.stack}\n` +
+            `${'='.repeat(80)}\n\n`;
+
+        try {
+            await fs.promises.appendFile(this.logFile, logEntry);
+            console.error(`❌ Async error logged to ${this.logFile}:`, error.message);
+        } catch (logError) {
+            console.error('❌ Failed to write async error to log:', logError.message);
+            console.error('❌ Original async error:', error.message);
+        }
+    }
+}
+
+// Instancia global del logger
+const errorLogger = new ErrorLogger();
+
+// ============================================================================
+// FUNCIONES DE UTILIDAD PARA VALIDACIÓN
+// ============================================================================
+
+function validateEnvironment() {
+    const errors = [];
+
+    // Verificar si el directorio .pampa existe
+    if (!fs.existsSync('.pampa')) {
+        errors.push('Directorio .pampa no encontrado. Ejecuta index_project primero.');
+    }
+
+    // Verificar si existe la base de datos
+    if (!fs.existsSync('.pampa/pampa.db')) {
+        errors.push('Base de datos .pampa/pampa.db no encontrada. Ejecuta index_project primero.');
+    }
+
+    return errors;
+}
+
+async function safeAsyncCall(asyncFn, context = {}) {
+    try {
+        return await asyncFn();
+    } catch (error) {
+        await errorLogger.logAsync(error, context);
+        throw error;
+    }
+}
+
 /**
  * Servidor MCP para PAMPA - Protocolo para Memoria Aumentada de Artefactos de Proyecto
  * 
@@ -20,7 +110,7 @@ import { getChunk, indexProject, searchCode } from './indexer.js';
 // Crear el servidor MCP
 const server = new McpServer({
     name: "pampa-code-memory",
-    version: "0.4.0"
+    version: "0.4.1"
 });
 
 // ============================================================================
@@ -33,38 +123,127 @@ const server = new McpServer({
 server.tool(
     "search_code",
     {
-        query: z.string().describe("Consulta de búsqueda semántica (ej: 'función de autenticación', 'manejo de errores')"),
+        query: z.string().min(2, "La consulta no puede estar vacía").describe("Consulta de búsqueda semántica (ej: 'función de autenticación', 'manejo de errores')"),
         limit: z.number().optional().default(10).describe("Número máximo de resultados a devolver"),
         provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
     },
     async ({ query, limit, provider }) => {
+        const context = { query, limit, provider, timestamp: new Date().toISOString() };
+
         try {
-            const results = await searchCode(query, limit, provider);
+            // Validación y limpieza de parámetros
+            if (!query || typeof query !== 'string') {
+                await errorLogger.logAsync(new Error('Query undefined o tipo inválido'), {
+                    ...context,
+                    receivedQuery: query,
+                    queryType: typeof query
+                });
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: `ERROR: La consulta es requerida y debe ser un string válido.\n\n` +
+                            `Ejemplos de uso correcto:\n` +
+                            `- "función de autenticación"\n` +
+                            `- "manejo de errores"\n` +
+                            `- "listar usuarios"\n\n` +
+                            `Error registrado en pampa_error.log`
+                    }],
+                    isError: true
+                };
+            }
+
+            const cleanQuery = query.trim();
+            const cleanProvider = provider ? provider.trim() : 'auto';
+
+            if (cleanQuery.length === 0) {
+                await errorLogger.logAsync(new Error('Query vacío después de trim'), {
+                    ...context,
+                    originalQuery: query,
+                    cleanQuery: cleanQuery
+                });
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: `ERROR: La consulta no puede estar vacía.\n\n` +
+                            `Proporciona una consulta válida como:\n` +
+                            `- "función de login"\n` +
+                            `- "validar datos"\n` +
+                            `- "conectar base de datos"\n\n` +
+                            `Error registrado en pampa_error.log`
+                    }],
+                    isError: true
+                };
+            }
+
+            // Validaciones del entorno
+            const envErrors = validateEnvironment();
+            if (envErrors.length > 0) {
+                const errorMsg = `ERRORES DE ENTORNO:\n${envErrors.map(e => `- ${e}`).join('\n')}`;
+                await errorLogger.logAsync(new Error('Environment validation failed'), {
+                    ...context,
+                    query: cleanQuery,
+                    envErrors
+                });
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: errorMsg + '\n\nSolucion: Ejecuta index_project primero para preparar el entorno.'
+                    }],
+                    isError: true
+                };
+            }
+
+            const results = await safeAsyncCall(
+                () => searchCode(cleanQuery, limit, cleanProvider),
+                { ...context, query: cleanQuery, provider: cleanProvider, step: 'searchCode_call' }
+            );
 
             if (results.length === 0) {
                 return {
                     content: [{
                         type: "text",
-                        text: `No se encontraron resultados para: "${query}"\n\nSugerencias:\n- Verifica que el proyecto esté indexado (usa index_project)\n- Intenta con términos más generales\n- Revisa que existan archivos de código en el proyecto`
+                        text: `No se encontraron resultados para: "${cleanQuery}"\n\n` +
+                            `Estado del sistema:\n` +
+                            `- Proveedor usado: ${cleanProvider}\n` +
+                            `- Base de datos: ${fs.existsSync('.pampa/pampa.db') ? 'Disponible' : 'No encontrada'}\n` +
+                            `- Codemap: ${fs.existsSync('pampa.codemap.json') ? 'Disponible' : 'No encontrado'}\n\n` +
+                            `Sugerencias:\n` +
+                            `- Verifica que el proyecto esté indexado (usa index_project)\n` +
+                            `- Intenta con términos más generales\n` +
+                            `- Revisa que existan archivos de código en el proyecto`
                     }]
                 };
             }
 
             const resultText = results.map(result =>
-                `📁 ${result.path}\n🔧 ${result.meta.symbol} (${result.lang})\n📊 Similitud: ${result.meta.score}\n🔑 SHA: ${result.sha}\n`
+                `Archivo: ${result.path}\nFuncion: ${result.meta.symbol} (${result.lang})\nSimilitud: ${result.meta.score}\nSHA: ${result.sha}\n`
             ).join('\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `🔍 Encontrados ${results.length} resultados para: "${query}"\n\n${resultText}\n💡 Usa get_code_chunk con el SHA para ver el código completo.`
+                    text: `Encontrados ${results.length} resultados para: "${cleanQuery}"\n\n${resultText}\nUsa get_code_chunk con el SHA para ver el código completo.`
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { ...context, step: 'search_code_tool' });
+
             return {
                 content: [{
                     type: "text",
-                    text: `❌ Error en la búsqueda: ${error.message}`
+                    text: `ERROR en la búsqueda: ${error.message}\n\n` +
+                        `Detalles técnicos:\n` +
+                        `- Error: ${error.constructor.name}\n` +
+                        `- Timestamp: ${context.timestamp}\n` +
+                        `- Proveedor: ${provider}\n\n` +
+                        `Error registrado en pampa_error.log\n\n` +
+                        `Posibles soluciones:\n` +
+                        `- Ejecuta index_project para reindexar\n` +
+                        `- Verifica que las dependencias estén instaladas\n` +
+                        `- Prueba con provider='transformers' para usar modelo local`
                 }],
                 isError: true
             };
@@ -78,11 +257,57 @@ server.tool(
 server.tool(
     "get_code_chunk",
     {
-        sha: z.string().describe("SHA del chunk de código a obtener")
+        sha: z.string().min(1, "SHA no puede estar vacío").describe("SHA del chunk de código a obtener")
     },
     async ({ sha }) => {
+        const context = { sha, timestamp: new Date().toISOString() };
+
         try {
-            const code = await getChunk(sha);
+            // Validación robusta del SHA
+            if (!sha || typeof sha !== 'string') {
+                await errorLogger.logAsync(new Error('SHA undefined o tipo inválido'), {
+                    ...context,
+                    receivedSha: sha,
+                    shaType: typeof sha
+                });
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: `ERROR: El SHA es requerido y debe ser un string válido.\n\n` +
+                            `El SHA debe ser una cadena de texto obtenida de search_code.\n` +
+                            `Ejemplo: "a1b2c3d4e5f6789"\n\n` +
+                            `Error registrado en pampa_error.log`
+                    }],
+                    isError: true
+                };
+            }
+
+            const cleanSha = sha.trim();
+
+            if (cleanSha.length === 0) {
+                await errorLogger.logAsync(new Error('SHA vacío después de trim'), {
+                    ...context,
+                    originalSha: sha,
+                    cleanSha: cleanSha
+                });
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: `ERROR: El SHA no puede estar vacío.\n\n` +
+                            `Proporciona un SHA válido obtenido de search_code.\n\n` +
+                            `Error registrado en pampa_error.log`
+                    }],
+                    isError: true
+                };
+            }
+
+            const code = await safeAsyncCall(
+                () => getChunk(cleanSha),
+                { ...context, sha: cleanSha, step: 'getChunk_call' }
+            );
+
             return {
                 content: [{
                     type: "text",
@@ -90,10 +315,17 @@ server.tool(
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { ...context, step: 'get_code_chunk_tool' });
+
             return {
                 content: [{
                     type: "text",
-                    text: `❌ Error obteniendo chunk: ${error.message}`
+                    text: `ERROR obteniendo chunk: ${error.message}\n\n` +
+                        `Detalles:\n` +
+                        `- SHA solicitado: ${sha}\n` +
+                        `- Timestamp: ${context.timestamp}\n` +
+                        `- Directorio chunks: ${fs.existsSync('.pampa/chunks') ? 'Existe' : 'No encontrado'}\n\n` +
+                        `Error registrado en pampa_error.log`
                 }],
                 isError: true
             };
@@ -111,19 +343,52 @@ server.tool(
         provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
     },
     async ({ path: projectPath, provider }) => {
+        const context = { projectPath, provider, timestamp: new Date().toISOString() };
+
         try {
-            await indexProject({ repoPath: projectPath, provider });
+            // Limpiar y validar parámetros
+            const cleanPath = projectPath ? projectPath.trim() : '.';
+            const cleanProvider = provider ? provider.trim() : 'auto';
+
+            // Verificar que el directorio existe
+            if (!fs.existsSync(cleanPath)) {
+                throw new Error(`El directorio ${cleanPath} no existe`);
+            }
+
+            await safeAsyncCall(
+                () => indexProject({ repoPath: cleanPath, provider: cleanProvider }),
+                { ...context, projectPath: cleanPath, provider: cleanProvider, step: 'indexProject_call' }
+            );
+
             return {
                 content: [{
                     type: "text",
-                    text: `✅ Proyecto indexado exitosamente en: ${projectPath}\n🧠 Proveedor: ${provider}\n\n🔍 Ahora puedes usar search_code para buscar funciones y clases.`
+                    text: `Proyecto indexado exitosamente en: ${cleanPath}\n` +
+                        `Proveedor: ${cleanProvider}\n\n` +
+                        `Archivos creados:\n` +
+                        `- ${fs.existsSync(path.join(cleanPath, 'pampa.codemap.json')) ? 'OK' : 'ERROR'} pampa.codemap.json\n` +
+                        `- ${fs.existsSync(path.join(cleanPath, '.pampa/pampa.db')) ? 'OK' : 'ERROR'} .pampa/pampa.db\n` +
+                        `- ${fs.existsSync(path.join(cleanPath, '.pampa/chunks')) ? 'OK' : 'ERROR'} .pampa/chunks/\n\n` +
+                        `Ahora puedes usar search_code para buscar funciones y clases.`
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { ...context, step: 'index_project_tool' });
+
             return {
                 content: [{
                     type: "text",
-                    text: `❌ Error indexando proyecto: ${error.message}`
+                    text: `ERROR indexando proyecto: ${error.message}\n\n` +
+                        `Detalles técnicos:\n` +
+                        `- Directorio: ${projectPath}\n` +
+                        `- Proveedor: ${provider}\n` +
+                        `- Timestamp: ${context.timestamp}\n\n` +
+                        `Error registrado en pampa_error.log\n\n` +
+                        `Posibles soluciones:\n` +
+                        `- Verifica que el directorio existe y es accesible\n` +
+                        `- Instala las dependencias necesarias (npm install)\n` +
+                        `- Prueba con un proveedor diferente\n` +
+                        `- Verifica permisos de escritura en el directorio`
                 }],
                 isError: true
             };
@@ -140,19 +405,32 @@ server.tool(
         path: z.string().optional().default(".").describe("Ruta del proyecto")
     },
     async ({ path: projectPath }) => {
+        const context = { projectPath, timestamp: new Date().toISOString() };
+
         try {
-            const codemapPath = path.join(projectPath, 'pampa.codemap.json');
+            // Limpiar parámetro
+            const cleanPath = projectPath ? projectPath.trim() : '.';
+            const codemapPath = path.join(cleanPath, 'pampa.codemap.json');
 
             if (!fs.existsSync(codemapPath)) {
                 return {
                     content: [{
                         type: "text",
-                        text: `📊 Proyecto no indexado en: ${projectPath}\n\n💡 Usa index_project para indexar el proyecto primero.`
+                        text: `Proyecto no indexado en: ${cleanPath}\n\n` +
+                            `Usa index_project para indexar el proyecto primero.\n\n` +
+                            `Estado del directorio:\n` +
+                            `- Directorio existe: ${fs.existsSync(cleanPath) ? 'SI' : 'NO'}\n` +
+                            `- pampa.codemap.json: NO encontrado\n` +
+                            `- .pampa/: ${fs.existsSync(path.join(cleanPath, '.pampa')) ? 'SI' : 'NO'}`
                     }]
                 };
             }
 
-            const codemap = JSON.parse(fs.readFileSync(codemapPath, 'utf8'));
+            const codemap = await safeAsyncCall(
+                () => JSON.parse(fs.readFileSync(codemapPath, 'utf8')),
+                { ...context, cleanPath, step: 'read_codemap' }
+            );
+
             const chunks = Object.values(codemap);
 
             // Estadísticas por lenguaje
@@ -170,27 +448,34 @@ server.tool(
             const topFiles = Object.entries(fileStats)
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10)
-                .map(([file, count]) => `  📄 ${file}: ${count} funciones`)
+                .map(([file, count]) => `  ${file}: ${count} funciones`)
                 .join('\n');
 
             const langStatsText = Object.entries(langStats)
-                .map(([lang, count]) => `  🔧 ${lang}: ${count} funciones`)
+                .map(([lang, count]) => `  ${lang}: ${count} funciones`)
                 .join('\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `📊 Estadísticas del proyecto: ${projectPath}\n\n` +
-                        `📈 Total de funciones indexadas: ${chunks.length}\n\n` +
-                        `🔧 Por lenguaje:\n${langStatsText}\n\n` +
-                        `📁 Archivos con más funciones:\n${topFiles}`
+                    text: `Estadisticas del proyecto: ${cleanPath}\n\n` +
+                        `Total de funciones indexadas: ${chunks.length}\n\n` +
+                        `Por lenguaje:\n${langStatsText}\n\n` +
+                        `Archivos con mas funciones:\n${topFiles}`
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { ...context, step: 'get_project_stats_tool' });
+
             return {
                 content: [{
                     type: "text",
-                    text: `❌ Error obteniendo estadísticas: ${error.message}`
+                    text: `ERROR obteniendo estadísticas: ${error.message}\n\n` +
+                        `Detalles:\n` +
+                        `- Proyecto: ${projectPath}\n` +
+                        `- Timestamp: ${context.timestamp}\n\n` +
+                        `Error registrado en pampa_error.log\n\n` +
+                        `Verifica que el proyecto esté indexado correctamente`
                 }],
                 isError: true
             };
@@ -230,10 +515,11 @@ server.resource(
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { step: 'codemap_resource', uri: uri.href });
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Error cargando mapa de código: ${error.message}`
+                    text: `Error cargando mapa de código: ${error.message}\n\nError registrado en pampa_error.log`
                 }]
             };
         }
@@ -270,10 +556,11 @@ server.resource(
                 }]
             };
         } catch (error) {
+            await errorLogger.logAsync(error, { step: 'overview_resource', uri: uri.href });
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Error generando resumen: ${error.message}`
+                    text: `Error generando resumen: ${error.message}\n\nError registrado en pampa_error.log`
                 }]
             };
         }
@@ -339,22 +626,29 @@ async function main() {
     await server.connect(transport);
 
     // El servidor ahora está ejecutándose y esperando conexiones MCP
-    console.error("🚀 Servidor MCP PAMPA iniciado y listo para conexiones");
+    // Solo logging a stderr para diagnóstico, no a stdout
+    if (process.env.PAMPA_DEBUG === 'true') {
+        console.error("🚀 Servidor MCP PAMPA iniciado y listo para conexiones");
+        console.error("📝 Sistema de logging de errores activado: pampa_error.log");
+    }
 }
 
 // Manejar errores no capturados
 process.on('uncaughtException', (error) => {
     console.error('❌ Error no capturado:', error);
+    errorLogger.log(error, { type: 'uncaughtException' });
     process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Promesa rechazada no manejada:', reason);
+    errorLogger.log(new Error(reason), { type: 'unhandledRejection', promise: promise.toString() });
     process.exit(1);
 });
 
 // Ejecutar el servidor
 main().catch(error => {
     console.error('❌ Error iniciando servidor MCP:', error);
+    errorLogger.log(error, { type: 'main_startup_error' });
     process.exit(1);
-}); 
+});

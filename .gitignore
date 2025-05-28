@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Base de datos y chunks locales (no commitear)
 .pampa/
+pampa.codemap.json
 
 # Variables de entorno
 .env

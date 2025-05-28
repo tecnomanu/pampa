@@ -90,9 +90,7 @@ class TransformersProvider extends EmbeddingProvider {
         if (!this.initialized && !this.pipeline) {
             try {
                 const { pipeline } = await import('@xenova/transformers');
-                console.log('🔄 Cargando modelo local de embeddings...');
                 this.pipeline = await pipeline('feature-extraction', this.model);
-                console.log('✅ Modelo local cargado');
                 this.initialized = true;
             } catch (error) {
                 throw new Error('Transformers.js no está instalado. Ejecuta: npm install @xenova/transformers');
@@ -214,13 +212,10 @@ function createEmbeddingProvider(providerName = 'auto') {
         default:
             // Auto-detectar el mejor proveedor disponible
             if (process.env.OPENAI_API_KEY) {
-                console.log('🔑 Usando OpenAI (API key detectada)');
                 return new OpenAIProvider();
             } else if (process.env.COHERE_API_KEY) {
-                console.log('🔑 Usando Cohere (API key detectada)');
                 return new CohereProvider();
             } else {
-                console.log('🏠 Usando modelo local (sin API keys detectadas)');
                 return new TransformersProvider();
             }
     }
@@ -263,7 +258,7 @@ async function initDatabase(dimensions) {
     await run(`CREATE INDEX IF NOT EXISTS idx_provider ON code_chunks(embedding_provider)`);
 
     db.close();
-    console.log('✅ Base de datos SQLite inicializada');
+    // Base de datos SQLite inicializada silenciosamente
 }
 
 // Función para calcular similitud coseno
@@ -291,11 +286,8 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
         ignore: ['**/vendor/**', '**/node_modules/**', '**/.git/**', '**/storage/**', '**/dist/**', '**/build/**']
     });
 
-    console.log(`🔍 Encontrados ${files.length} archivos para indexar`);
-
     // Crear proveedor de embeddings UNA SOLA VEZ
     const embeddingProvider = createEmbeddingProvider(provider);
-    console.log(`🧠 Usando proveedor: ${embeddingProvider.getName()}`);
 
     // Inicializar el proveedor UNA SOLA VEZ
     if (embeddingProvider.init) {
@@ -434,7 +426,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                         dimensions: embeddingProvider.getDimensions()
                     };
 
-                    console.log(`✅ Indexado: ${chunkId}`);
+                    // Chunk indexado silenciosamente
                 } catch (error) {
                     console.error(`❌ Error indexando ${chunkId}:`, error.message);
                 }
@@ -448,9 +440,13 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
 
     // Guardar codemap actualizado
     fs.writeFileSync(path.join(repo, CODEMAP), JSON.stringify(codemap, null, 2));
-    console.log(`\n✨ Indexación completada: ${processedChunks} chunks procesados`);
-    console.log(`📄 pampa.codemap.json actualizado con ${Object.keys(codemap).length} chunks totales`);
-    console.log(`🧠 Proveedor usado: ${embeddingProvider.getName()}`);
+    // Indexación completada silenciosamente
+    // Devolver estadísticas si es necesario
+    return {
+        processedChunks,
+        totalChunks: Object.keys(codemap).length,
+        provider: embeddingProvider.getName()
+    };
 }
 
 // Función para buscar código similar
