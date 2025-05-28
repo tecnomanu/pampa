@@ -4,12 +4,14 @@
 	"description": "PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto (MCP compatible)",
 	"type": "module",
 	"bin": {
-		"pampa": "./cli.js"
+		"pampa": "./cli.js",
+		"pampa-server": "./pampa-server.js"
 	},
 	"files": [
 		"cli.js",
 		"indexer.js",
 		"mcp-server.js",
+		"pampa-server.js",
 		"README.md"
 	],
 	"scripts": {

@@ -9,7 +9,7 @@ Este proyecto demuestra cómo organizar una aplicación de chat compleja en múl
 ### Backend (Node.js)
 
 ```
-node/example/
+example/
 ├── server.js              # Servidor principal y configuración
 ├── package.json           # Dependencias del proyecto
 ├── modules/               # Módulos del backend
@@ -114,7 +114,7 @@ El chat incluye varios comandos especiales:
 1. **Navega al directorio del ejemplo:**
 
     ```bash
-    cd node/example
+    cd example
     ```
 
 2. **Instala las dependencias:**
