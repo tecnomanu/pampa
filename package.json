@@ -2,16 +2,21 @@
 	"name": "pampa",
 	"version": "0.4.0",
 	"description": "PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto (MCP compatible)",
+	"author": "Manuel Bruña",
 	"type": "module",
+	"license": "ISC",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/tecnomanu/pampa.git"
+	},
 	"bin": {
-		"pampa": "./cli.js",
-		"pampa-mcp": "./pampa-server.js"
+		"pampa": "cli.js",
+		"pampa-mcp": "mcp-serve.js"
 	},
 	"files": [
 		"cli.js",
 		"indexer.js",
 		"mcp-server.js",
-		"pampa-server.js",
 		"README.md"
 	],
 	"scripts": {
@@ -23,7 +28,9 @@
 		"search": "node cli.js search",
 		"info": "node cli.js info",
 		"build": "tsc",
-		"dev": "tsc --watch"
+		"dev": "tsc --watch",
+		"prepare": "husky install",
+		"test": "echo ok"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.12.0",
@@ -46,7 +53,9 @@
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"husky": "^8.0.0",
+		"semantic-release": "^24.2.3"
 	},
 	"keywords": [
 		"mcp",
@@ -56,10 +65,26 @@
 		"embeddings",
 		"vector-search"
 	],
-	"author": "PAMPA Team",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/tu-usuario/pampa-ia.git"
+	"release": {
+		"branches": [
+			"main"
+		],
+		"plugins": [
+			"@semantic-release/commit-analyzer",
+			"@semantic-release/release-notes-generator",
+			"@semantic-release/changelog",
+			"@semantic-release/npm",
+			"@semantic-release/github",
+			[
+				"@semantic-release/git",
+				{
+					"assets": [
+						"CHANGELOG.md",
+						"package.json"
+					],
+					"message": "chore(release): ${nextRelease.version} [skip ci]"
+				}
+			]
+		]
 	}
 }
