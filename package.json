@@ -1,0 +1,63 @@
+{
+	"name": "pampa",
+	"version": "0.4.0",
+	"description": "PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto (MCP compatible)",
+	"type": "module",
+	"bin": {
+		"pampa": "./cli.js"
+	},
+	"files": [
+		"cli.js",
+		"indexer.js",
+		"mcp-server.js",
+		"README.md"
+	],
+	"scripts": {
+		"index": "node cli.js index",
+		"index:local": "node cli.js index --provider transformers",
+		"index:openai": "node cli.js index --provider openai",
+		"index:ollama": "node cli.js index --provider ollama",
+		"mcp": "node cli.js mcp",
+		"search": "node cli.js search",
+		"info": "node cli.js info",
+		"build": "tsc",
+		"dev": "tsc --watch"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.12.0",
+		"commander": "^12.0.0",
+		"fast-glob": "^3.3.2",
+		"openai": "^4.103.0",
+		"sqlite3": "^5.1.6",
+		"tree-sitter": "^0.20.1",
+		"tree-sitter-go": "^0.20.0",
+		"tree-sitter-java": "^0.20.0",
+		"tree-sitter-javascript": "^0.20.1",
+		"tree-sitter-php": "^0.20.0",
+		"tree-sitter-typescript": "^0.20.1",
+		"zod": "^3.22.4"
+	},
+	"optionalDependencies": {
+		"@xenova/transformers": "^2.17.2",
+		"cohere-ai": "^7.9.5",
+		"ollama": "^0.5.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"typescript": "^5.0.0"
+	},
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"ai",
+		"code-search",
+		"embeddings",
+		"vector-search"
+	],
+	"author": "PAMPA Team",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/tu-usuario/pampa-ia.git"
+	}
+}

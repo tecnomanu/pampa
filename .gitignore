@@ -1,0 +1,44 @@
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Base de datos y chunks locales (no commitear)
+.pampa/
+
+# Variables de entorno
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+
+# Archivos temporales
+.tmp/
+.temp/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Archivos de test
+coverage/
+
+# Archivos específicos de PAMPA que SÍ se deben commitear:
+# pampa.codemap.json - ¡IMPORTANTE: NO ignorar este archivo! 

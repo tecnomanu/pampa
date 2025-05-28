@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>PAMPA Chat - Ejemplo Distribuido</title>
+		<link rel="stylesheet" href="styles.css" />
+		<link
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+			rel="stylesheet" />
+	</head>
+	<body>
+		<div id="app">
+			<!-- Pantalla de conexión -->
+			<div id="login-screen" class="screen active">
+				<div class="login-container">
+					<div class="logo">
+						<i class="fas fa-comments"></i>
+						<h1>PAMPA Chat</h1>
+						<p>Ejemplo de chat distribuido en múltiples archivos</p>
+					</div>
+
+					<form id="login-form" class="login-form">
+						<div class="form-group">
+							<label for="username">Nombre de usuario</label>
+							<input
+								type="text"
+								id="username"
+								placeholder="Ingresa tu nombre"
+								required />
+						</div>
+
+						<div class="form-group">
+							<label for="room-select">Sala inicial</label>
+							<select id="room-select">
+								<option value="general">General</option>
+								<option value="tecnologia">Tecnología</option>
+								<option value="random">Random</option>
+							</select>
+						</div>
+
+						<button type="submit" class="btn-primary">
+							<i class="fas fa-sign-in-alt"></i>
+							Unirse al Chat
+						</button>
+					</form>
+
+					<div class="connection-status">
+						<span
+							id="connection-indicator"
+							class="status-disconnected">
+							<i class="fas fa-circle"></i>
+							Desconectado
+						</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Pantalla principal del chat -->
+			<div id="chat-screen" class="screen">
+				<div class="chat-container">
+					<!-- Sidebar -->
+					<div class="sidebar">
+						<div class="sidebar-header">
+							<div class="user-info">
+								<div id="user-avatar" class="avatar"></div>
+								<div class="user-details">
+									<span id="user-name">Usuario</span>
+									<span id="user-status">En línea</span>
+								</div>
+							</div>
+							<button id="settings-btn" class="icon-btn">
+								<i class="fas fa-cog"></i>
+							</button>
+						</div>
+
+						<!-- Lista de salas -->
+						<div class="section">
+							<div class="section-header">
+								<h3><i class="fas fa-home"></i> Salas</h3>
+								<button id="create-room-btn" class="icon-btn">
+									<i class="fas fa-plus"></i>
+								</button>
+							</div>
+							<div id="rooms-list" class="rooms-list">
+								<!-- Las salas se cargarán dinámicamente -->
+							</div>
+						</div>
+
+						<!-- Lista de usuarios -->
+						<div class="section">
+							<div class="section-header">
+								<h3><i class="fas fa-users"></i> Usuarios</h3>
+								<span id="users-count" class="count">0</span>
+							</div>
+							<div id="users-list" class="users-list">
+								<!-- Los usuarios se cargarán dinámicamente -->
+							</div>
+						</div>
+					</div>
+
+					<!-- Área principal del chat -->
+					<div class="main-chat">
+						<!-- Header del chat -->
+						<div class="chat-header">
+							<div class="room-info">
+								<h2 id="current-room-name">General</h2>
+								<span id="current-room-description"
+									>Sala principal para conversaciones
+									generales</span
+								>
+							</div>
+							<div class="chat-actions">
+								<button
+									id="search-btn"
+									class="icon-btn"
+									title="Buscar mensajes">
+									<i class="fas fa-search"></i>
+								</button>
+								<button
+									id="info-btn"
+									class="icon-btn"
+									title="Información de la sala">
+									<i class="fas fa-info-circle"></i>
+								</button>
+							</div>
+						</div>
+
+						<!-- Área de mensajes -->
+						<div id="messages-container" class="messages-container">
+							<div id="messages-list" class="messages-list">
+								<!-- Los mensajes se cargarán dinámicamente -->
+							</div>
+
+							<!-- Indicador de escritura -->
+							<div
+								id="typing-indicator"
+								class="typing-indicator hidden">
+								<div class="typing-dots">
+									<span></span>
+									<span></span>
+									<span></span>
+								</div>
+								<span id="typing-users"></span>
+							</div>
+						</div>
+
+						<!-- Área de entrada de mensajes -->
+						<div class="message-input-container">
+							<div id="emoji-picker" class="emoji-picker hidden">
+								<div class="emoji-grid">
+									<span class="emoji" data-emoji="😀"
+										>😀</span
+									>
+									<span class="emoji" data-emoji="😂"
+										>😂</span
+									>
+									<span class="emoji" data-emoji="😍"
+										>😍</span
+									>
+									<span class="emoji" data-emoji="🤔"
+										>🤔</span
+									>
+									<span class="emoji" data-emoji="👍"
+										>👍</span
+									>
+									<span class="emoji" data-emoji="👎"
+										>👎</span
+									>
+									<span class="emoji" data-emoji="❤️"
+										>❤️</span
+									>
+									<span class="emoji" data-emoji="🎉"
+										>🎉</span
+									>
+									<span class="emoji" data-emoji="🔥"
+										>🔥</span
+									>
+									<span class="emoji" data-emoji="💯"
+										>💯</span
+									>
+								</div>
+							</div>
+
+							<div class="message-input">
+								<button id="emoji-btn" class="icon-btn">
+									<i class="fas fa-smile"></i>
+								</button>
+								<input
+									type="text"
+									id="message-input"
+									placeholder="Escribe un mensaje... (o /help para comandos)"
+									maxlength="1000" />
+								<button
+									id="send-btn"
+									class="btn-primary"
+									disabled>
+									<i class="fas fa-paper-plane"></i>
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Modales -->
+			<div id="modal-overlay" class="modal-overlay hidden">
+				<!-- Modal de crear sala -->
+				<div id="create-room-modal" class="modal hidden">
+					<div class="modal-header">
+						<h3>Crear Nueva Sala</h3>
+						<button class="close-modal">
+							<i class="fas fa-times"></i>
+						</button>
+					</div>
+					<div class="modal-body">
+						<form id="create-room-form">
+							<div class="form-group">
+								<label for="new-room-name"
+									>Nombre de la sala</label
+								>
+								<input
+									type="text"
+									id="new-room-name"
+									placeholder="Nombre de la sala"
+									required />
+							</div>
+							<div class="form-group">
+								<label for="new-room-description"
+									>Descripción</label
+								>
+								<textarea
+									id="new-room-description"
+									placeholder="Descripción de la sala"></textarea>
+							</div>
+							<div class="form-group">
+								<label for="new-room-max-users"
+									>Máximo de usuarios</label
+								>
+								<input
+									type="number"
+									id="new-room-max-users"
+									value="20"
+									min="2"
+									max="100" />
+							</div>
+							<div class="form-actions">
+								<button
+									type="button"
+									class="btn-secondary close-modal">
+									Cancelar
+								</button>
+								<button type="submit" class="btn-primary">
+									Crear Sala
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+
+				<!-- Modal de información de sala -->
+				<div id="room-info-modal" class="modal hidden">
+					<div class="modal-header">
+						<h3>Información de la Sala</h3>
+						<button class="close-modal">
+							<i class="fas fa-times"></i>
+						</button>
+					</div>
+					<div class="modal-body">
+						<div id="room-info-content">
+							<!-- El contenido se cargará dinámicamente -->
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Notificaciones -->
+			<div id="notifications-container" class="notifications-container">
+				<!-- Las notificaciones se mostrarán aquí -->
+			</div>
+		</div>
+
+		<script src="chat.js"></script>
+	</body>
+</html>

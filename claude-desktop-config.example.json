@@ -1,0 +1,11 @@
+{
+	"mcpServers": {
+		"pampa": {
+			"command": "npx",
+			"args": ["pampa", "mcp"],
+			"env": {
+				"OPENAI_API_KEY": "tu-openai-api-key-aqui"
+			}
+		}
+	}
+}
