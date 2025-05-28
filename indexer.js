@@ -83,15 +83,17 @@ class TransformersProvider extends EmbeddingProvider {
         super();
         this.pipeline = null;
         this.model = 'Xenova/all-MiniLM-L6-v2';
+        this.initialized = false;
     }
 
     async init() {
-        if (!this.pipeline) {
+        if (!this.initialized && !this.pipeline) {
             try {
                 const { pipeline } = await import('@xenova/transformers');
                 console.log('🔄 Cargando modelo local de embeddings...');
                 this.pipeline = await pipeline('feature-extraction', this.model);
                 console.log('✅ Modelo local cargado');
+                this.initialized = true;
             } catch (error) {
                 throw new Error('Transformers.js no está instalado. Ejecuta: npm install @xenova/transformers');
             }
@@ -99,7 +101,9 @@ class TransformersProvider extends EmbeddingProvider {
     }
 
     async generateEmbedding(text) {
-        await this.init();
+        if (!this.initialized) {
+            await this.init();
+        }
         const result = await this.pipeline(text.slice(0, 512), {
             pooling: 'mean',
             normalize: true
@@ -319,12 +323,12 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
             const source = fs.readFileSync(abs, 'utf8');
             const tree = parser.parse(source);
 
-            function walk(node) {
+            async function walk(node) {
                 if (rule.nodeTypes.includes(node.type)) {
-                    yieldChunk(node);
+                    await yieldChunk(node);
                 }
                 for (let i = 0; i < node.childCount; i++) {
-                    walk(node.child(i));
+                    await walk(node.child(i));
                 }
             }
 
@@ -436,7 +440,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                 }
             }
 
-            walk(tree.rootNode);
+            await walk(tree.rootNode);
         } catch (error) {
             console.error(`❌ Error procesando ${rel}:`, error.message);
         }
