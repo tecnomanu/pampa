@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/tecnomanu/pampa/compare/v1.4.0...v1.5.0) (2025-05-29)
+
+
+### Features
+
+* add update_project tool and AI agent workflow documentation - Add update_project MCP tool for keeping code memory current - Add update command to CLI for manual updates - Create comprehensive AI agent workflow guide - Document when and how to use update_project - Add suggested prompts and strategies for AI agents - Emphasize continuous use of PAMPA for code memory ([5ce04bf](https://github.com/tecnomanu/pampa/commit/5ce04bf78a56985d28cee15005b6904abe063102))
+
 # [1.4.0](https://github.com/tecnomanu/pampa/compare/v1.3.4...v1.4.0) (2025-05-29)
 
 
