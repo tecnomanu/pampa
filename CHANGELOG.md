@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/tecnomanu/pampa/compare/v1.3.2...v1.3.3) (2025-05-29)
+
+
+### Bug Fixes
+
+* :fire: debugin and fix directory ([9fd80bb](https://github.com/tecnomanu/pampa/commit/9fd80bb975f1433b3a79898315d8943755523bc8))
+
 ## [1.3.2](https://github.com/tecnomanu/pampa/compare/v1.3.1...v1.3.2) (2025-05-29)
 
 
