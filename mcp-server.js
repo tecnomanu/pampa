@@ -11,6 +11,15 @@ import * as service from './service.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// DEBUG: Log current working directory to error log
+const debugLogPath = 'pampa_debug.log';
+const debugInfo = `[${new Date().toISOString()}] MCP Server started\nCWD: ${process.cwd()}\n__dirname: ${__dirname}\n${'='.repeat(50)}\n\n`;
+try {
+    fs.appendFileSync(debugLogPath, debugInfo);
+} catch (e) {
+    // Silent fail for debug log
+}
+
 // Read version from package.json
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
@@ -646,11 +655,10 @@ server.prompt(
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.log({ "start": "PAMPA MCP Server started and ready for connections" });
 
-    if (process.env.PAMPA_DEBUG === 'true') {
-        console.error("Error logging system activated: pampa_error.log");
-    }
+    console.log({ "start": "PAMPA MCP Server started and ready for connections" });
+    // Only output valid JSON for MCP protocol
+    // Debug info is logged to pampa_debug.log instead
 }
 
 // Handle uncaught errors

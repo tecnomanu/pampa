@@ -103,10 +103,35 @@ export function cosineSimilarity(a, b) {
 
 export async function indexProject({ repoPath = '.', provider = 'auto', onProgress = null }) {
     const repo = path.resolve(repoPath);
+
+    // Ensure we're working in a valid directory and add more restrictive patterns
+    if (!fs.existsSync(repo)) {
+        throw new Error(`Directory ${repo} does not exist`);
+    }
+
+    // More restrictive patterns to avoid system directories
     const pattern = Object.keys(LANG_RULES).map(ext => `**/*${ext}`);
     const files = await fg(pattern, {
         cwd: repo,
-        ignore: ['**/vendor/**', '**/node_modules/**', '**/.git/**', '**/storage/**', '**/dist/**', '**/build/**']
+        absolute: false, // Use relative paths only
+        followSymbolicLinks: false, // Don't follow symlinks to avoid system dirs
+        ignore: [
+            '**/vendor/**',
+            '**/node_modules/**',
+            '**/.git/**',
+            '**/storage/**',
+            '**/dist/**',
+            '**/build/**',
+            '**/tmp/**',
+            '**/temp/**',
+            '**/.npm/**',
+            '**/.yarn/**',
+            '**/Library/**', // Explicitly ignore Library directories
+            '**/System/**', // Explicitly ignore System directories
+            '**/.Trash/**'
+        ],
+        onlyFiles: true, // Only return files, not directories
+        dot: false // Don't include hidden files
     });
 
     // Create embedding provider ONCE ONLY

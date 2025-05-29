@@ -74,37 +74,31 @@ program
     .command('mcp')
     .description('Start MCP server for AI agent integration')
     .action(() => {
-        console.log('Starting PAMPA MCP server...');
-        console.log('Server will be available for MCP connections via stdio');
-        console.log('Configure your MCP client to connect to this process');
-        console.log('');
-
-        // Execute MCP server
+        // Execute MCP server directly without console output that interferes with MCP protocol
         const serverPath = path.join(__dirname, 'mcp-server.js');
         const mcpServer = spawn('node', [serverPath], {
             stdio: 'inherit'
         });
 
         mcpServer.on('error', (error) => {
-            console.error('ERROR starting MCP server:', error.message);
+            // Log to stderr instead of stdout to avoid MCP protocol interference
+            process.stderr.write(`ERROR starting MCP server: ${error.message}\n`);
             process.exit(1);
         });
 
         mcpServer.on('exit', (code) => {
             if (code !== 0) {
-                console.error(`MCP server terminated with code: ${code}`);
+                process.stderr.write(`MCP server terminated with code: ${code}\n`);
                 process.exit(code);
             }
         });
 
         // Handle signals to close cleanly
         process.on('SIGINT', () => {
-            console.log('\nClosing MCP server...');
             mcpServer.kill('SIGINT');
         });
 
         process.on('SIGTERM', () => {
-            console.log('\nClosing MCP server...');
             mcpServer.kill('SIGTERM');
         });
     });
