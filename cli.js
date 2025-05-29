@@ -4,7 +4,8 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { indexProject, searchCode } from './indexer.js';
+import { indexProject } from './indexer.js';
+import { searchCode } from './service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,16 +54,31 @@ program
     });
 
 program
-    .command('search <query>')
+    .command('search <query> [path]')
     .option('-k, --limit <num>', 'maximum number of results', '10')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
     .description('Search code semantically in the indexed project')
-    .action(async (query, options) => {
+    .action(async (query, projectPath = '.', options) => {
         try {
             const limit = parseInt(options.limit);
-            const results = await searchCode(query, limit, options.provider);
+            const results = await searchCode(query, limit, options.provider, projectPath);
 
-            if (results.length === 0) {
+            if (!results.success) {
+                console.log(`No results found for: "${query}"`);
+                if (results.error === 'database_not_found') {
+                    console.log(`Database not found: ${results.message}`);
+                    console.log('Suggestions:');
+                    console.log(`  - Run: node cli.js index ${projectPath}`);
+                } else {
+                    console.log('Suggestions:');
+                    console.log('  - Verify that the project is indexed (pampa index)');
+                    console.log('  - Try with more general terms');
+                    console.log(`  - Verify you use the same provider: --provider ${options.provider}`);
+                }
+                return;
+            }
+
+            if (results.results.length === 0) {
                 console.log(`No results found for: "${query}"`);
                 console.log('Suggestions:');
                 console.log('  - Verify that the project is indexed (pampa index)');
@@ -71,9 +87,9 @@ program
                 return;
             }
 
-            console.log(`Found ${results.length} results for: "${query}"\n`);
+            console.log(`Found ${results.results.length} results for: "${query}"\n`);
 
-            results.forEach((result, index) => {
+            results.results.forEach((result, index) => {
                 console.log(`${index + 1}. FILE: ${result.path}`);
                 console.log(`   SYMBOL: ${result.meta.symbol} (${result.lang})`);
                 console.log(`   SIMILARITY: ${result.meta.score}`);
