@@ -472,14 +472,14 @@ server.tool(
                 errorLogger.debugLog('get_code_chunk completed successfully', {
                     sha: cleanSha,
                     chunkPath: `${cleanPath}/.pampa/chunks/${cleanSha}.gz`,
-                    contentLength: result.content.length
+                    contentLength: result.code.length
                 });
             }
 
             return {
                 content: [{
                     type: "text",
-                    text: result.content
+                    text: result.code
                 }],
                 isError: false
             };
