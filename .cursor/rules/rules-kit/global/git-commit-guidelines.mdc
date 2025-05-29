@@ -24,78 +24,55 @@ Adopt **Conventional Commits** with emojis for quick context:
 
 ## Author Identity Rules
 
-Para diferenciar claramente el origen de cada commit, **SIEMPRE** usar `--author` según el contexto:
+To clearly differentiate the origin of each commit, **ALWAYS** use `--author` according to context:
 
 ### Human Developer Commits
-Commits realizados directamente por desarrolladores humanos:
+Commits made directly by human developers:
 ```bash
-# Usar identidad normal del desarrollador (sin --author)
+# Use developer's normal identity (without --author)
 git commit -m "feat(auth): ✨ implement OAuth login"
 ```
 
 ### AI Assistant Commits  
-Commits realizados por asistentes de IA (Claude, ChatGPT, etc.):
+Commits made by AI assistants (Cursor, Claude, ChatGPT, etc.):
 ```bash
-# OBLIGATORIO usar --author con identificación AI
-git commit --author="Claude AI <claude.ai@assistant.local>" -m "feat(api): ✨ add user validation"
-git commit --author="ChatGPT AI <chatgpt.ai@assistant.local>" -m "fix(auth): 🐛 handle token expiry"
+# MANDATORY use --author with AI identification
+git commit --author="Cursor AI <cursor.ai@assistant.local>" -m "feat(api): ✨ add user validation"
+git commit --author="Cursor AI <cursor.ai@assistant.local>" -m "fix(auth): 🐛 handle token expiry"
 ```
 
 ### Automated System Commits
-Commits automáticos (semantic-release, bots, CI/CD):
+Automatic commits (semantic-release, bots, CI/CD):
 ```bash
-# Estos sistemas ya configuran su propio author automáticamente
-# No requiere acción manual
+# These systems already configure their own author automatically
+# No manual action required
 ```
 
 ### Important Notes
-- **Avatar Display**: El avatar se determina por el email. Emails no asociados a cuentas GitHub mostrarán avatar por defecto
-- **Consistency**: Mantener consistencia en el formato de emails AI: `<ai-name>.ai@assistant.local`
-- **Transparency**: Esta práctica mejora la transparencia y trazabilidad del desarrollo colaborativo
+- **Avatar Display**: Avatar is determined by email. Emails not associated with GitHub accounts will show default avatar
+- **Consistency**: Maintain consistency in AI email format: `<ai-name>.ai@assistant.local`
+- **Transparency**: This practice improves transparency and traceability of collaborative development
 
-## Git Identity Configuration
+## Release Guidelines
 
-### Per Repository (Recommended)
-Configure different name/email for specific projects:
+### When NOT to Create Releases
+- **Default Behavior**: Do NOT create releases unless explicitly requested
+- **Check Existing Automation**: Before attempting any release, verify if automation already exists:
+  - GitHub Actions workflows (`.github/workflows/`)
+  - GitLab CI/CD pipelines (`.gitlab-ci.yml`)
+  - `semantic-release` in `package.json` dependencies
+  - Other automated release tools
 
+### When to Create Releases
+Only create releases when:
+1. **Explicitly requested** by the user
+2. **No existing automation** is found
+3. **Manual release process** is confirmed to be needed
+
+### Release Verification Commands
 ```bash
-# Set identity for current repository
-git config user.name "Project Name"
-git config user.email "project@email.com"
-
-# Verify configuration
-git config user.name
-git config user.email
+# Check for existing automation
+ls .github/workflows/
+cat package.json | grep semantic-release
+cat .gitlab-ci.yml 2>/dev/null || echo "No GitLab CI found"
 ```
-
-### Per Commit
-Override identity for a single commit:
-
-```bash
-git commit --author="Author Name <author@email.com>" -m "commit message"
-```
-
-### Global Configuration
-Set default identity for all repositories:
-
-```bash
-git config --global user.name "Your Name"
-git config --global user.email "your@email.com"
-```
-
-### Conditional Configuration
-Auto-switch identity based on directory (add to `~/.gitconfig`):
-
-```ini
-[includeIf "gitdir:~/work/"]
-    path = ~/.gitconfig-work
-
-[includeIf "gitdir:~/personal/"]
-    path = ~/.gitconfig-personal
-```
-
-Create separate config files:
-- `~/.gitconfig-work`: Work identity
-- `~/.gitconfig-personal`: Personal identity
-
-**Note**: GitHub avatar is determined by the email address associated with your GitHub account.
