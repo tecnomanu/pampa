@@ -11,32 +11,75 @@ import * as service from './service.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// DEBUG: Log current working directory to error log
-const debugLogPath = 'pampa_debug.log';
-const debugInfo = `[${new Date().toISOString()}] MCP Server started\nCWD: ${process.cwd()}\n__dirname: ${__dirname}\n${'='.repeat(50)}\n\n`;
-try {
-    fs.appendFileSync(debugLogPath, debugInfo);
-} catch (e) {
-    // Silent fail for debug log
-}
-
 // Read version from package.json
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+
+// Global debug mode and working directory
+let debugMode = process.argv.includes('--debug');
+let currentWorkingPath = '.';
 
 // ============================================================================
 // ERROR LOGGING SYSTEM
 // ============================================================================
 
 class ErrorLogger {
-    constructor(logFile = 'pampa_error.log') {
-        this.logFile = logFile;
+    constructor(workingPath = '.') {
+        this.workingPath = workingPath;
+        this.debugLogPath = path.join(workingPath, 'pampa_debug.log');
+        this.errorLogPath = path.join(workingPath, 'pampa_error.log');
         this.ensureLogDirectory();
+
+        if (debugMode) {
+            this.debugLog('PAMPA MCP Server initialized', {
+                version: packageJson.version,
+                workingPath: path.resolve(workingPath),
+                serverCwd: process.cwd(),
+                debugMode: true
+            });
+        }
+    }
+
+    updateWorkingPath(newPath) {
+        this.workingPath = newPath;
+        this.debugLogPath = path.join(newPath, 'pampa_debug.log');
+        this.errorLogPath = path.join(newPath, 'pampa_error.log');
+        this.ensureLogDirectory();
+
+        if (debugMode) {
+            this.debugLog('Working path updated', {
+                oldPath: currentWorkingPath,
+                newPath: path.resolve(newPath)
+            });
+        }
+
+        currentWorkingPath = newPath;
     }
 
     ensureLogDirectory() {
-        const logDir = path.dirname(this.logFile);
-        if (logDir !== '.' && !fs.existsSync(logDir)) {
-            fs.mkdirSync(logDir, { recursive: true });
+        const debugDir = path.dirname(this.debugLogPath);
+        const errorDir = path.dirname(this.errorLogPath);
+
+        if (debugDir !== '.' && !fs.existsSync(debugDir)) {
+            fs.mkdirSync(debugDir, { recursive: true });
+        }
+        if (errorDir !== '.' && !fs.existsSync(errorDir)) {
+            fs.mkdirSync(errorDir, { recursive: true });
+        }
+    }
+
+    debugLog(message, context = {}) {
+        if (!debugMode) return;
+
+        const timestamp = new Date().toISOString();
+        const logEntry = `[${timestamp}] DEBUG: ${message}\n` +
+            `Context: ${JSON.stringify(context, null, 2)}\n` +
+            `${'='.repeat(50)}\n\n`;
+
+        try {
+            fs.appendFileSync(this.debugLogPath, logEntry);
+            console.log(`🐛 DEBUG [${timestamp}]: ${message}`);
+        } catch (logError) {
+            console.error('Failed to write to debug log:', logError.message);
         }
     }
 
@@ -47,17 +90,23 @@ class ErrorLogger {
             message: error.message,
             stack: error.stack,
             context,
-            type: error.constructor.name
+            type: error.constructor.name,
+            workingPath: this.workingPath
         };
 
         const logEntry = `[${timestamp}] ERROR: ${error.message}\n` +
+            `Working Path: ${path.resolve(this.workingPath)}\n` +
             `Context: ${JSON.stringify(context, null, 2)}\n` +
             `Stack: ${error.stack}\n` +
             `${'='.repeat(80)}\n\n`;
 
         try {
-            fs.appendFileSync(this.logFile, logEntry);
-            console.error(`Error logged to ${this.logFile}:`, error.message);
+            fs.appendFileSync(this.errorLogPath, logEntry);
+            console.error(`❌ Error logged to ${this.errorLogPath}:`, error.message);
+
+            if (debugMode) {
+                this.debugLog('Error occurred', { error: error.message, context });
+            }
         } catch (logError) {
             console.error('Failed to write to error log:', logError.message);
             console.error('Original error:', error.message);
@@ -67,13 +116,18 @@ class ErrorLogger {
     async logAsync(error, context = {}) {
         const timestamp = new Date().toISOString();
         const logEntry = `[${timestamp}] ASYNC ERROR: ${error.message}\n` +
+            `Working Path: ${path.resolve(this.workingPath)}\n` +
             `Context: ${JSON.stringify(context, null, 2)}\n` +
             `Stack: ${error.stack}\n` +
             `${'='.repeat(80)}\n\n`;
 
         try {
-            await fs.promises.appendFile(this.logFile, logEntry);
-            console.error(`Async error logged to ${this.logFile}:`, error.message);
+            await fs.promises.appendFile(this.errorLogPath, logEntry);
+            console.error(`❌ Async error logged to ${this.errorLogPath}:`, error.message);
+
+            if (debugMode) {
+                this.debugLog('Async error occurred', { error: error.message, context });
+            }
         } catch (logError) {
             console.error('Failed to write async error to log:', logError.message);
             console.error('Original async error:', error.message);
@@ -82,7 +136,7 @@ class ErrorLogger {
 }
 
 // Global logger instance
-const errorLogger = new ErrorLogger();
+let errorLogger = new ErrorLogger();
 
 // ============================================================================
 // VALIDATION UTILITY FUNCTIONS
@@ -138,6 +192,10 @@ const server = new McpServer({
 
 /**
  * Tool for semantic code search
+ * 
+ * IMPORTANT: This tool searches in the database located at `{path}/.pampa/pampa.db`
+ * The path parameter specifies the project directory where PAMPA has been indexed.
+ * Make sure to run index_project on that directory first.
  */
 server.tool(
     "search_code",
@@ -145,10 +203,17 @@ server.tool(
         query: z.string().min(2, "Query cannot be empty").describe("Semantic search query (e.g. 'authentication function', 'error handling')"),
         limit: z.number().optional().default(10).describe("Maximum number of results to return"),
         provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)"),
-        path: z.string().optional().default(".").describe("Working directory path where to search (default: current directory)")
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path where PAMPA database is located (the directory containing .pampa/ folder)")
     },
     async ({ query, limit, provider, path: workingPath }) => {
         const context = { query, limit, provider, workingPath, timestamp: new Date().toISOString() };
+
+        // Update logger working path
+        errorLogger.updateWorkingPath(workingPath || '.');
+
+        if (debugMode) {
+            errorLogger.debugLog('search_code tool called', context);
+        }
 
         try {
             // Parameter validation and cleaning
@@ -167,7 +232,7 @@ server.tool(
                             `- "authentication function"\n` +
                             `- "error handling"\n` +
                             `- "list users"\n\n` +
-                            `Error logged to pampa_error.log`
+                            `Error logged to ${errorLogger.errorLogPath}`
                     }],
                     isError: true
                 };
@@ -192,7 +257,7 @@ server.tool(
                             `- "login function"\n` +
                             `- "validate data"\n` +
                             `- "connect database"\n\n` +
-                            `Error logged to pampa_error.log`
+                            `Error logged to ${errorLogger.errorLogPath}`
                     }],
                     isError: true
                 };
@@ -212,7 +277,8 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: errorMsg + `\n\nSolution: Run index_project from the correct directory: ${cleanPath}`
+                        text: errorMsg + `\n\nSolution: Run index_project on the project root directory: ${cleanPath}\n` +
+                            `The project root should contain your source code and will have a .pampa/ folder after indexing.`
                     }],
                     isError: true
                 };
@@ -230,7 +296,8 @@ server.tool(
                             type: "text",
                             text: `No results found.\n\n` +
                                 `Message: ${results.message}\n` +
-                                `Suggestion: ${results.suggestion}`
+                                `Suggestion: ${results.suggestion}\n\n` +
+                                `Note: Database should be at ${cleanPath}/.pampa/pampa.db`
                         }],
                         isError: false
                     };
@@ -262,11 +329,20 @@ server.tool(
                     `   SHA: ${result.sha}`;
             }).join('\n\n');
 
+            if (debugMode) {
+                errorLogger.debugLog('search_code completed successfully', {
+                    resultsCount: results.results.length,
+                    provider: results.provider,
+                    query: cleanQuery
+                });
+            }
+
             return {
                 content: [{
                     type: "text",
                     text: `Found ${results.results.length} results for: "${cleanQuery}"\n` +
-                        `Provider: ${results.provider}\n\n` +
+                        `Provider: ${results.provider}\n` +
+                        `Database: ${cleanPath}/.pampa/pampa.db\n\n` +
                         resultText
                 }],
                 isError: false
@@ -281,10 +357,11 @@ server.tool(
                         `Technical details:\n` +
                         `- Error: ${error.constructor.name}\n` +
                         `- Timestamp: ${context.timestamp}\n` +
-                        `- Provider: ${provider}\n\n` +
-                        `Error logged to pampa_error.log\n\n` +
+                        `- Provider: ${provider}\n` +
+                        `- Expected database: ${workingPath}/.pampa/pampa.db\n\n` +
+                        `Error logged to ${errorLogger.errorLogPath}\n\n` +
                         `Possible solutions:\n` +
-                        `- Run index_project to reindex\n` +
+                        `- Run index_project on the project root directory\n` +
                         `- Verify dependencies are installed\n` +
                         `- Try with provider='transformers' for local model`
                 }],
@@ -296,15 +373,26 @@ server.tool(
 
 /**
  * Tool to get complete code of a specific chunk
+ * 
+ * IMPORTANT: This tool retrieves code chunks from `{path}/.pampa/chunks/{sha}.gz`
+ * The path parameter must point to the same project directory used in search_code.
+ * The SHA is obtained from search_code results.
  */
 server.tool(
     "get_code_chunk",
     {
-        sha: z.string().min(1, "SHA cannot be empty").describe("SHA of the code chunk to retrieve"),
-        path: z.string().optional().default(".").describe("Working directory path where to search (default: current directory)")
+        sha: z.string().min(1, "SHA cannot be empty").describe("SHA of the code chunk to retrieve (obtained from search_code results)"),
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path where PAMPA chunks are stored (same path used in search_code)")
     },
     async ({ sha, path: workingPath }) => {
         const context = { sha, workingPath, timestamp: new Date().toISOString() };
+
+        // Update logger working path
+        errorLogger.updateWorkingPath(workingPath || '.');
+
+        if (debugMode) {
+            errorLogger.debugLog('get_code_chunk tool called', context);
+        }
 
         try {
             // Robust SHA validation
@@ -321,7 +409,7 @@ server.tool(
                         text: `ERROR: SHA is required and must be a valid string.\n\n` +
                             `SHA must be a text string obtained from search_code.\n` +
                             `Example: "a1b2c3d4e5f6789"\n\n` +
-                            `Error logged to pampa_error.log`
+                            `Error logged to ${errorLogger.errorLogPath}`
                     }],
                     isError: true
                 };
@@ -342,7 +430,7 @@ server.tool(
                         type: "text",
                         text: `ERROR: SHA cannot be empty.\n\n` +
                             `Provide a valid SHA obtained from search_code.\n\n` +
-                            `Error logged to pampa_error.log`
+                            `Error logged to ${errorLogger.errorLogPath}`
                     }],
                     isError: true
                 };
@@ -357,10 +445,20 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `Error: ${result.message}`
+                        text: `Error: ${result.message}\n\n` +
+                            `Expected chunk file: ${cleanPath}/.pampa/chunks/${cleanSha}.gz\n` +
+                            `Tip: Make sure the SHA is correct and the path points to the same project directory used in search_code.`
                     }],
                     isError: true
                 };
+            }
+
+            if (debugMode) {
+                errorLogger.debugLog('get_code_chunk completed successfully', {
+                    sha: cleanSha,
+                    chunkPath: `${cleanPath}/.pampa/chunks/${cleanSha}.gz`,
+                    contentLength: result.content.length
+                });
             }
 
             return {
@@ -379,9 +477,14 @@ server.tool(
                     text: `ERROR getting chunk: ${error.message}\n\n` +
                         `Details:\n` +
                         `- Requested SHA: ${sha}\n` +
-                        `- Timestamp: ${context.timestamp}\n` +
-                        `- Chunks directory: ${fs.existsSync('.pampa/chunks') ? 'Exists' : 'Not found'}\n\n` +
-                        `Error logged to pampa_error.log`
+                        `- Project path: ${workingPath}\n` +
+                        `- Expected chunk file: ${workingPath}/.pampa/chunks/${sha}.gz\n` +
+                        `- Timestamp: ${context.timestamp}\n\n` +
+                        `Error logged to ${errorLogger.errorLogPath}\n\n` +
+                        `Troubleshooting:\n` +
+                        `- Verify the SHA is correct (from search_code results)\n` +
+                        `- Ensure path points to the project root directory\n` +
+                        `- Check that the project was properly indexed`
                 }],
                 isError: true
             };
@@ -391,15 +494,30 @@ server.tool(
 
 /**
  * Tool to index a project
+ * 
+ * IMPORTANT: This tool creates a PAMPA database at `{path}/.pampa/pampa.db`
+ * It scans all source code files in the specified directory and creates:
+ * - .pampa/pampa.db (SQLite database with embeddings)
+ * - .pampa/chunks/ (compressed code chunks)
+ * - pampa.codemap.json (lightweight index for version control)
+ * 
+ * The path should be the PROJECT ROOT containing your source code.
  */
 server.tool(
     "index_project",
     {
-        path: z.string().optional().default(".").describe("Path of the project to index (default: current directory)"),
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path to index (will create .pampa/ subdirectory here)"),
         provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)")
     },
     async ({ path: projectPath, provider }) => {
         const context = { projectPath, provider, timestamp: new Date().toISOString() };
+
+        // Update logger working path
+        errorLogger.updateWorkingPath(projectPath || '.');
+
+        if (debugMode) {
+            errorLogger.debugLog('index_project tool called', context);
+        }
 
         try {
             // Clean and validate parameters
@@ -411,6 +529,14 @@ server.tool(
                 throw new Error(`Directory ${cleanPath} does not exist`);
             }
 
+            if (debugMode) {
+                errorLogger.debugLog('Starting project indexing', {
+                    projectPath: path.resolve(cleanPath),
+                    provider: cleanProvider,
+                    willCreateDatabase: `${cleanPath}/.pampa/pampa.db`
+                });
+            }
+
             const result = await safeAsyncCall(
                 () => service.indexProject({ repoPath: cleanPath, provider: cleanProvider }),
                 { ...context, projectPath: cleanPath, provider: cleanProvider, step: 'indexProject_call' }
@@ -420,26 +546,42 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `Indexing failed: ${result.message || 'Unknown error'}`
+                        text: `Indexing failed: ${result.message || 'Unknown error'}\n\n` +
+                            `Expected to create: ${cleanPath}/.pampa/pampa.db\n` +
+                            `Error logged to ${errorLogger.errorLogPath}`
                     }],
                     isError: true
                 };
             }
 
-            let responseText = `Project indexed successfully!\n\n` +
-                `Statistics:\n` +
+            let responseText = `✅ Project indexed successfully!\n\n` +
+                `📊 Statistics:\n` +
                 `- Processed chunks: ${result.processedChunks}\n` +
                 `- Total chunks: ${result.totalChunks}\n` +
-                `- Provider: ${result.provider}`;
+                `- Provider: ${result.provider}\n\n` +
+                `📁 Files created:\n` +
+                `- Database: ${cleanPath}/.pampa/pampa.db\n` +
+                `- Chunks: ${cleanPath}/.pampa/chunks/\n` +
+                `- Codemap: ${cleanPath}/pampa.codemap.json\n\n` +
+                `🔍 You can now use search_code with path="${cleanPath}"`;
 
             if (result.errors && result.errors.length > 0) {
-                responseText += `\n\nWarnings (${result.errors.length} errors occurred):\n`;
+                responseText += `\n\n⚠️ Warnings (${result.errors.length} errors occurred):\n`;
                 result.errors.slice(0, 5).forEach(error => {
                     responseText += `- ${error.type}: ${error.error}\n`;
                 });
                 if (result.errors.length > 5) {
                     responseText += `... and ${result.errors.length - 5} more errors\n`;
                 }
+            }
+
+            if (debugMode) {
+                errorLogger.debugLog('index_project completed successfully', {
+                    processedChunks: result.processedChunks,
+                    totalChunks: result.totalChunks,
+                    provider: result.provider,
+                    errorsCount: result.errors?.length || 0
+                });
             }
 
             return {
@@ -455,17 +597,19 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR indexing project: ${error.message}\n\n` +
+                    text: `❌ ERROR indexing project: ${error.message}\n\n` +
                         `Technical details:\n` +
                         `- Directory: ${projectPath}\n` +
                         `- Provider: ${provider}\n` +
+                        `- Expected database location: ${projectPath}/.pampa/pampa.db\n` +
                         `- Timestamp: ${context.timestamp}\n\n` +
-                        `Error logged to pampa_error.log\n\n` +
+                        `Error logged to ${errorLogger.errorLogPath}\n\n` +
                         `Possible solutions:\n` +
                         `- Verify directory exists and is accessible\n` +
                         `- Install necessary dependencies (npm install)\n` +
                         `- Try with a different provider\n` +
-                        `- Check write permissions in the directory`
+                        `- Check write permissions in the directory\n` +
+                        `- Ensure the path points to a project root (not a subdirectory)`
                 }],
                 isError: true
             };
@@ -475,14 +619,24 @@ server.tool(
 
 /**
  * Tool to get indexed project statistics
+ * 
+ * IMPORTANT: This tool reads statistics from the database at `{path}/.pampa/pampa.db`
+ * Use the same path where you ran index_project to get project overview and stats.
  */
 server.tool(
     "get_project_stats",
     {
-        path: z.string().optional().default(".").describe("Project path")
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path where PAMPA database is located (same path used in index_project)")
     },
     async ({ path: projectPath }) => {
         const context = { projectPath, timestamp: new Date().toISOString() };
+
+        // Update logger working path
+        errorLogger.updateWorkingPath(projectPath || '.');
+
+        if (debugMode) {
+            errorLogger.debugLog('get_project_stats tool called', context);
+        }
 
         try {
             const cleanPath = projectPath ? projectPath.trim() : '.';
@@ -492,7 +646,9 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `Error getting overview: ${overviewResult.message}`
+                        text: `Error getting overview: ${overviewResult.message}\n\n` +
+                            `Expected database: ${cleanPath}/.pampa/pampa.db\n` +
+                            `Tip: Run index_project on this directory first.`
                     }],
                     isError: true
                 };
@@ -504,7 +660,9 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: "Project not indexed or empty. Use index_project tool first."
+                        text: `📋 Project not indexed or empty.\n\n` +
+                            `Expected database: ${cleanPath}/.pampa/pampa.db\n` +
+                            `Solution: Use index_project tool first on directory: ${cleanPath}`
                     }]
                 };
             }
@@ -513,10 +671,18 @@ server.tool(
                 `- ${result.path} :: ${result.meta.symbol} (${result.lang})`
             ).join('\n');
 
+            if (debugMode) {
+                errorLogger.debugLog('get_project_stats completed successfully', {
+                    resultsCount: results.length,
+                    databasePath: `${cleanPath}/.pampa/pampa.db`
+                });
+            }
+
             return {
                 content: [{
                     type: "text",
-                    text: `Project overview (${results.length} main functions):\n\n${overview}`
+                    text: `📊 Project overview (${results.length} main functions):\n` +
+                        `📁 Database: ${cleanPath}/.pampa/pampa.db\n\n${overview}`
                 }]
             };
         } catch (error) {
@@ -525,12 +691,13 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR getting statistics: ${error.message}\n\n` +
+                    text: `❌ ERROR getting statistics: ${error.message}\n\n` +
                         `Details:\n` +
                         `- Project: ${projectPath}\n` +
+                        `- Expected database: ${projectPath}/.pampa/pampa.db\n` +
                         `- Timestamp: ${context.timestamp}\n\n` +
-                        `Error logged to pampa_error.log\n\n` +
-                        `Verify the project is indexed correctly`
+                        `Error logged to ${errorLogger.errorLogPath}\n\n` +
+                        `Verify the project is indexed correctly with index_project tool.`
                 }],
                 isError: true
             };
@@ -665,7 +832,22 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    console.log({ "start": "PAMPA MCP Server started and ready for connections" });
+    if (debugMode) {
+        errorLogger.debugLog('MCP Server connected and ready', {
+            version: packageJson.version,
+            transport: 'stdio',
+            debugMode: true
+        });
+        console.log('🐛 DEBUG MODE ENABLED - Detailed logging active');
+        console.log(`📝 Debug log: ${errorLogger.debugLogPath}`);
+        console.log(`❌ Error log: ${errorLogger.errorLogPath}`);
+    }
+
+    console.log({
+        "start": "PAMPA MCP Server started and ready for connections",
+        "version": packageJson.version,
+        "debug_mode": debugMode
+    });
     // Only output valid JSON for MCP protocol
     // Debug info is logged to pampa_debug.log instead
 }
