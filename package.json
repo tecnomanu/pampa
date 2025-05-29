@@ -16,6 +16,8 @@
 	"files": [
 		"cli.js",
 		"indexer.js",
+		"service.js",
+		"providers.js",
 		"mcp-server.js",
 		"README.md"
 	],
