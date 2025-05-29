@@ -1,3 +1,10 @@
+## [1.3.4](https://github.com/tecnomanu/pampa/compare/v1.3.3...v1.3.4) (2025-05-29)
+
+
+### Bug Fixes
+
+* add path parameter to MCP tools for working directory support ([9226cb7](https://github.com/tecnomanu/pampa/commit/9226cb73947d1b9a79ed62cca30e5a46f1e2f976))
+
 ## [1.3.3](https://github.com/tecnomanu/pampa/compare/v1.3.2...v1.3.3) (2025-05-29)
 
 
