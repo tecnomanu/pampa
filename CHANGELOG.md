@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/tecnomanu/pampa/compare/v1.2.1...v1.3.0) (2025-05-29)
+
+
+### Bug Fixes
+
+* include service.js and providers.js in npm package files ([98a8c10](https://github.com/tecnomanu/pampa/commit/98a8c105e00803ed0a640d5b4be6fb679d7146f4))
+
+
+### Features
+
+* fix npm package distribution by including missing service and provider files ([a058389](https://github.com/tecnomanu/pampa/commit/a058389544518235eb126539513d4ed9ba598a9a))
+
 ## [1.2.1](https://github.com/tecnomanu/pampa/compare/v1.2.0...v1.2.1) (2025-05-29)
 
 
