@@ -88,17 +88,20 @@ const errorLogger = new ErrorLogger();
 // VALIDATION UTILITY FUNCTIONS
 // ============================================================================
 
-function validateEnvironment() {
+function validateEnvironment(workingPath = '.') {
     const errors = [];
 
+    const pampaDir = path.join(workingPath, '.pampa');
+    const dbPath = path.join(workingPath, '.pampa', 'pampa.db');
+
     // Check if .pampa directory exists
-    if (!fs.existsSync('.pampa')) {
-        errors.push('.pampa directory not found. Run index_project first.');
+    if (!fs.existsSync(pampaDir)) {
+        errors.push(`.pampa directory not found in ${workingPath}. Run index_project first.`);
     }
 
     // Check if database exists
-    if (!fs.existsSync('.pampa/pampa.db')) {
-        errors.push('Database .pampa/pampa.db not found. Run index_project first.');
+    if (!fs.existsSync(dbPath)) {
+        errors.push(`Database .pampa/pampa.db not found in ${workingPath}. Run index_project first.`);
     }
 
     return errors;
@@ -141,10 +144,11 @@ server.tool(
     {
         query: z.string().min(2, "Query cannot be empty").describe("Semantic search query (e.g. 'authentication function', 'error handling')"),
         limit: z.number().optional().default(10).describe("Maximum number of results to return"),
-        provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)")
+        provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)"),
+        path: z.string().optional().default(".").describe("Working directory path where to search (default: current directory)")
     },
-    async ({ query, limit, provider }) => {
-        const context = { query, limit, provider, timestamp: new Date().toISOString() };
+    async ({ query, limit, provider, path: workingPath }) => {
+        const context = { query, limit, provider, workingPath, timestamp: new Date().toISOString() };
 
         try {
             // Parameter validation and cleaning
@@ -171,6 +175,7 @@ server.tool(
 
             const cleanQuery = query.trim();
             const cleanProvider = provider ? provider.trim() : 'auto';
+            const cleanPath = workingPath ? workingPath.trim() : '.';
 
             if (cleanQuery.length === 0) {
                 await errorLogger.logAsync(new Error('Query empty after trim'), {
@@ -193,28 +198,29 @@ server.tool(
                 };
             }
 
-            // Environment validations
-            const envErrors = validateEnvironment();
+            // Environment validations with working directory
+            const envErrors = validateEnvironment(cleanPath);
             if (envErrors.length > 0) {
-                const errorMsg = `ENVIRONMENT ERRORS:\n${envErrors.map(e => `- ${e}`).join('\n')}`;
+                const errorMsg = `ENVIRONMENT ERRORS in ${cleanPath}:\n${envErrors.map(e => `- ${e}`).join('\n')}`;
                 await errorLogger.logAsync(new Error('Environment validation failed'), {
                     ...context,
                     query: cleanQuery,
+                    workingPath: cleanPath,
                     envErrors
                 });
 
                 return {
                     content: [{
                         type: "text",
-                        text: errorMsg + '\n\nSolution: Run index_project first to prepare the environment.'
+                        text: errorMsg + `\n\nSolution: Run index_project from the correct directory: ${cleanPath}`
                     }],
                     isError: true
                 };
             }
 
             const results = await safeAsyncCall(
-                () => service.searchCode(cleanQuery, limit, cleanProvider),
-                { ...context, query: cleanQuery, provider: cleanProvider, step: 'searchCode_call' }
+                () => service.searchCode(cleanQuery, limit, cleanProvider, cleanPath),
+                { ...context, query: cleanQuery, provider: cleanProvider, workingPath: cleanPath, step: 'searchCode_call' }
             );
 
             if (!results.success) {
@@ -294,10 +300,11 @@ server.tool(
 server.tool(
     "get_code_chunk",
     {
-        sha: z.string().min(1, "SHA cannot be empty").describe("SHA of the code chunk to retrieve")
+        sha: z.string().min(1, "SHA cannot be empty").describe("SHA of the code chunk to retrieve"),
+        path: z.string().optional().default(".").describe("Working directory path where to search (default: current directory)")
     },
-    async ({ sha }) => {
-        const context = { sha, timestamp: new Date().toISOString() };
+    async ({ sha, path: workingPath }) => {
+        const context = { sha, workingPath, timestamp: new Date().toISOString() };
 
         try {
             // Robust SHA validation
@@ -321,6 +328,7 @@ server.tool(
             }
 
             const cleanSha = sha.trim();
+            const cleanPath = workingPath ? workingPath.trim() : '.';
 
             if (cleanSha.length === 0) {
                 await errorLogger.logAsync(new Error('SHA empty after trim'), {
@@ -341,8 +349,8 @@ server.tool(
             }
 
             const result = await safeAsyncCall(
-                () => service.getChunk(cleanSha),
-                { ...context, sha: cleanSha, step: 'getChunk_call' }
+                () => service.getChunk(cleanSha, cleanPath),
+                { ...context, sha: cleanSha, workingPath: cleanPath, step: 'getChunk_call' }
             );
 
             if (!result.success) {

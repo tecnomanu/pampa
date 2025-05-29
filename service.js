@@ -305,12 +305,18 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
     };
 }
 
-export async function searchCode(query, limit = 10, provider = 'auto') {
+export async function searchCode(query, limit = 10, provider = 'auto', workingPath = '.') {
     if (!query || !query.trim()) {
-        return await getOverview(limit);
+        return await getOverview(limit, workingPath);
     }
 
+    // Change to working directory
+    const originalCwd = process.cwd();
+    const absoluteWorkingPath = path.resolve(workingPath);
+
     try {
+        process.chdir(absoluteWorkingPath);
+
         // Create provider for query
         const embeddingProvider = createEmbeddingProvider(provider);
         const queryEmbedding = await embeddingProvider.generateEmbedding(query);
@@ -332,8 +338,8 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
             return {
                 success: false,
                 error: 'no_chunks_found',
-                message: `No indexed chunks found with ${embeddingProvider.getName()}`,
-                suggestion: `Run: npx pampa index --provider ${provider}`,
+                message: `No indexed chunks found with ${embeddingProvider.getName()} in ${absoluteWorkingPath}`,
+                suggestion: `Run: npx pampa index --provider ${provider} from ${absoluteWorkingPath}`,
                 results: []
             };
         }
@@ -398,12 +404,20 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
             message: error.message,
             results: []
         };
+    } finally {
+        process.chdir(originalCwd);
     }
 }
 
 // Function to get project overview
-export async function getOverview(limit = 20) {
+export async function getOverview(limit = 20, workingPath = '.') {
+    // Change to working directory
+    const originalCwd = process.cwd();
+    const absoluteWorkingPath = path.resolve(workingPath);
+
     try {
+        process.chdir(absoluteWorkingPath);
+
         const db = new sqlite3.Database(DB_PATH);
         const all = promisify(db.all.bind(db));
 
@@ -440,15 +454,23 @@ export async function getOverview(limit = 20) {
             message: error.message,
             results: []
         };
+    } finally {
+        process.chdir(originalCwd);
     }
 }
 
 // Function to get chunk content
-export async function getChunk(sha) {
+export async function getChunk(sha, workingPath = '.') {
+    // Change to working directory
+    const originalCwd = process.cwd();
+    const absoluteWorkingPath = path.resolve(workingPath);
+
     try {
+        process.chdir(absoluteWorkingPath);
+
         const gzPath = path.join(CHUNK_DIR, `${sha}.gz`);
         if (!fs.existsSync(gzPath)) {
-            throw new Error(`Chunk not found: ${sha}`);
+            throw new Error(`Chunk not found: ${sha} in ${absoluteWorkingPath}`);
         }
         return {
             success: true,
@@ -460,5 +482,7 @@ export async function getChunk(sha) {
             error: 'chunk_not_found',
             message: error.message
         };
+    } finally {
+        process.chdir(originalCwd);
     }
 } 
