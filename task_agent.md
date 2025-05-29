@@ -5,16 +5,15 @@
 ### ✅ Completadas
 
 -   [x] Solución de bugs MCP (undefined params, emojis, etc.)
-
-### 🔄 En Progreso
-
--   [ ] **Tarea 1**: Reorganizar tests en carpeta `test/` + npm test + husky
+-   [x] **Tarea 1**: Reorganizar tests en carpeta `test/` + npm test + husky
 
     -   **Commit**: `test: 🧪 move tests to test/ folder and setup npm test with husky`
-    -   [ ] Crear carpeta `test/`
-    -   [ ] Mover archivos de test
-    -   [ ] Configurar package.json scripts
-    -   [ ] Setup husky para pre-commit
+    -   [x] Crear carpeta `test/`
+    -   [x] Mover archivos de test
+    -   [x] Configurar package.json scripts
+    -   [x] Setup husky para pre-commit
+
+### 🔄 En Progreso
 
 -   [ ] **Tarea 2**: Convertir proyecto a inglés + README bilingüe
 

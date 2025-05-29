@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getChunk, indexProject, searchCode } from './indexer.js';
 
 // ============================================================================
-// SISTEMA DE LOGGING DE ERRORES
+// ERROR LOGGING SYSTEM
 // ============================================================================
 
 class ErrorLogger {
@@ -41,10 +41,10 @@ class ErrorLogger {
 
         try {
             fs.appendFileSync(this.logFile, logEntry);
-            console.error(`❌ Error logged to ${this.logFile}:`, error.message);
+            console.error(`Error logged to ${this.logFile}:`, error.message);
         } catch (logError) {
-            console.error('❌ Failed to write to error log:', logError.message);
-            console.error('❌ Original error:', error.message);
+            console.error('Failed to write to error log:', logError.message);
+            console.error('Original error:', error.message);
         }
     }
 
@@ -57,32 +57,32 @@ class ErrorLogger {
 
         try {
             await fs.promises.appendFile(this.logFile, logEntry);
-            console.error(`❌ Async error logged to ${this.logFile}:`, error.message);
+            console.error(`Async error logged to ${this.logFile}:`, error.message);
         } catch (logError) {
-            console.error('❌ Failed to write async error to log:', logError.message);
-            console.error('❌ Original async error:', error.message);
+            console.error('Failed to write async error to log:', logError.message);
+            console.error('Original async error:', error.message);
         }
     }
 }
 
-// Instancia global del logger
+// Global logger instance
 const errorLogger = new ErrorLogger();
 
 // ============================================================================
-// FUNCIONES DE UTILIDAD PARA VALIDACIÓN
+// VALIDATION UTILITY FUNCTIONS
 // ============================================================================
 
 function validateEnvironment() {
     const errors = [];
 
-    // Verificar si el directorio .pampa existe
+    // Check if .pampa directory exists
     if (!fs.existsSync('.pampa')) {
-        errors.push('Directorio .pampa no encontrado. Ejecuta index_project primero.');
+        errors.push('.pampa directory not found. Run index_project first.');
     }
 
-    // Verificar si existe la base de datos
+    // Check if database exists
     if (!fs.existsSync('.pampa/pampa.db')) {
-        errors.push('Base de datos .pampa/pampa.db no encontrada. Ejecuta index_project primero.');
+        errors.push('Database .pampa/pampa.db not found. Run index_project first.');
     }
 
     return errors;
@@ -98,42 +98,42 @@ async function safeAsyncCall(asyncFn, context = {}) {
 }
 
 /**
- * Servidor MCP para PAMPA - Protocolo para Memoria Aumentada de Artefactos de Proyecto
+ * MCP Server for PAMPA - Protocol for Augmented Memory of Project Artifacts
  * 
- * Este servidor expone herramientas y recursos para que los agentes de IA puedan:
- * - Buscar código semánticamente en el proyecto
- * - Obtener contenido específico de funciones/clases
- * - Indexar nuevos proyectos
- * - Obtener resúmenes del proyecto
+ * This server exposes tools and resources for AI agents to:
+ * - Search code semantically in the project
+ * - Get specific content of functions/classes
+ * - Index new projects
+ * - Get project summaries
  */
 
-// Crear el servidor MCP
+// Create MCP server
 const server = new McpServer({
     name: "pampa-code-memory",
     version: "0.4.1"
 });
 
 // ============================================================================
-// HERRAMIENTAS (TOOLS) - Permiten a los LLMs realizar acciones
+// TOOLS - Allow LLMs to perform actions
 // ============================================================================
 
 /**
- * Herramienta para buscar código semánticamente
+ * Tool for semantic code search
  */
 server.tool(
     "search_code",
     {
-        query: z.string().min(2, "La consulta no puede estar vacía").describe("Consulta de búsqueda semántica (ej: 'función de autenticación', 'manejo de errores')"),
-        limit: z.number().optional().default(10).describe("Número máximo de resultados a devolver"),
-        provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
+        query: z.string().min(2, "Query cannot be empty").describe("Semantic search query (e.g. 'authentication function', 'error handling')"),
+        limit: z.number().optional().default(10).describe("Maximum number of results to return"),
+        provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)")
     },
     async ({ query, limit, provider }) => {
         const context = { query, limit, provider, timestamp: new Date().toISOString() };
 
         try {
-            // Validación y limpieza de parámetros
+            // Parameter validation and cleaning
             if (!query || typeof query !== 'string') {
-                await errorLogger.logAsync(new Error('Query undefined o tipo inválido'), {
+                await errorLogger.logAsync(new Error('Query undefined or invalid type'), {
                     ...context,
                     receivedQuery: query,
                     queryType: typeof query
@@ -142,12 +142,12 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `ERROR: La consulta es requerida y debe ser un string válido.\n\n` +
-                            `Ejemplos de uso correcto:\n` +
-                            `- "función de autenticación"\n` +
-                            `- "manejo de errores"\n` +
-                            `- "listar usuarios"\n\n` +
-                            `Error registrado en pampa_error.log`
+                        text: `ERROR: Query is required and must be a valid string.\n\n` +
+                            `Correct usage examples:\n` +
+                            `- "authentication function"\n` +
+                            `- "error handling"\n` +
+                            `- "list users"\n\n` +
+                            `Error logged to pampa_error.log`
                     }],
                     isError: true
                 };
@@ -157,7 +157,7 @@ server.tool(
             const cleanProvider = provider ? provider.trim() : 'auto';
 
             if (cleanQuery.length === 0) {
-                await errorLogger.logAsync(new Error('Query vacío después de trim'), {
+                await errorLogger.logAsync(new Error('Query empty after trim'), {
                     ...context,
                     originalQuery: query,
                     cleanQuery: cleanQuery
@@ -166,21 +166,21 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `ERROR: La consulta no puede estar vacía.\n\n` +
-                            `Proporciona una consulta válida como:\n` +
-                            `- "función de login"\n` +
-                            `- "validar datos"\n` +
-                            `- "conectar base de datos"\n\n` +
-                            `Error registrado en pampa_error.log`
+                        text: `ERROR: Query cannot be empty.\n\n` +
+                            `Provide a valid query like:\n` +
+                            `- "login function"\n` +
+                            `- "validate data"\n` +
+                            `- "connect database"\n\n` +
+                            `Error logged to pampa_error.log`
                     }],
                     isError: true
                 };
             }
 
-            // Validaciones del entorno
+            // Environment validations
             const envErrors = validateEnvironment();
             if (envErrors.length > 0) {
-                const errorMsg = `ERRORES DE ENTORNO:\n${envErrors.map(e => `- ${e}`).join('\n')}`;
+                const errorMsg = `ENVIRONMENT ERRORS:\n${envErrors.map(e => `- ${e}`).join('\n')}`;
                 await errorLogger.logAsync(new Error('Environment validation failed'), {
                     ...context,
                     query: cleanQuery,
@@ -190,7 +190,7 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: errorMsg + '\n\nSolucion: Ejecuta index_project primero para preparar el entorno.'
+                        text: errorMsg + '\n\nSolution: Run index_project first to prepare the environment.'
                     }],
                     isError: true
                 };
@@ -205,27 +205,27 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `No se encontraron resultados para: "${cleanQuery}"\n\n` +
-                            `Estado del sistema:\n` +
-                            `- Proveedor usado: ${cleanProvider}\n` +
-                            `- Base de datos: ${fs.existsSync('.pampa/pampa.db') ? 'Disponible' : 'No encontrada'}\n` +
-                            `- Codemap: ${fs.existsSync('pampa.codemap.json') ? 'Disponible' : 'No encontrado'}\n\n` +
-                            `Sugerencias:\n` +
-                            `- Verifica que el proyecto esté indexado (usa index_project)\n` +
-                            `- Intenta con términos más generales\n` +
-                            `- Revisa que existan archivos de código en el proyecto`
+                        text: `No results found for: "${cleanQuery}"\n\n` +
+                            `System status:\n` +
+                            `- Provider used: ${cleanProvider}\n` +
+                            `- Database: ${fs.existsSync('.pampa/pampa.db') ? 'Available' : 'Not found'}\n` +
+                            `- Codemap: ${fs.existsSync('pampa.codemap.json') ? 'Available' : 'Not found'}\n\n` +
+                            `Suggestions:\n` +
+                            `- Verify project is indexed (use index_project)\n` +
+                            `- Try more general terms\n` +
+                            `- Check that code files exist in the project`
                     }]
                 };
             }
 
             const resultText = results.map(result =>
-                `Archivo: ${result.path}\nFuncion: ${result.meta.symbol} (${result.lang})\nSimilitud: ${result.meta.score}\nSHA: ${result.sha}\n`
+                `File: ${result.path}\nFunction: ${result.meta.symbol} (${result.lang})\nSimilarity: ${result.meta.score}\nSHA: ${result.sha}\n`
             ).join('\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `Encontrados ${results.length} resultados para: "${cleanQuery}"\n\n${resultText}\nUsa get_code_chunk con el SHA para ver el código completo.`
+                    text: `Found ${results.length} results for: "${cleanQuery}"\n\n${resultText}\nUse get_code_chunk with the SHA to see the complete code.`
                 }]
             };
         } catch (error) {
@@ -234,16 +234,16 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR en la búsqueda: ${error.message}\n\n` +
-                        `Detalles técnicos:\n` +
+                    text: `ERROR in search: ${error.message}\n\n` +
+                        `Technical details:\n` +
                         `- Error: ${error.constructor.name}\n` +
                         `- Timestamp: ${context.timestamp}\n` +
-                        `- Proveedor: ${provider}\n\n` +
-                        `Error registrado en pampa_error.log\n\n` +
-                        `Posibles soluciones:\n` +
-                        `- Ejecuta index_project para reindexar\n` +
-                        `- Verifica que las dependencias estén instaladas\n` +
-                        `- Prueba con provider='transformers' para usar modelo local`
+                        `- Provider: ${provider}\n\n` +
+                        `Error logged to pampa_error.log\n\n` +
+                        `Possible solutions:\n` +
+                        `- Run index_project to reindex\n` +
+                        `- Verify dependencies are installed\n` +
+                        `- Try with provider='transformers' for local model`
                 }],
                 isError: true
             };
@@ -252,20 +252,20 @@ server.tool(
 );
 
 /**
- * Herramienta para obtener el código completo de un chunk específico
+ * Tool to get complete code of a specific chunk
  */
 server.tool(
     "get_code_chunk",
     {
-        sha: z.string().min(1, "SHA no puede estar vacío").describe("SHA del chunk de código a obtener")
+        sha: z.string().min(1, "SHA cannot be empty").describe("SHA of the code chunk to retrieve")
     },
     async ({ sha }) => {
         const context = { sha, timestamp: new Date().toISOString() };
 
         try {
-            // Validación robusta del SHA
+            // Robust SHA validation
             if (!sha || typeof sha !== 'string') {
-                await errorLogger.logAsync(new Error('SHA undefined o tipo inválido'), {
+                await errorLogger.logAsync(new Error('SHA undefined or invalid type'), {
                     ...context,
                     receivedSha: sha,
                     shaType: typeof sha
@@ -274,10 +274,10 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `ERROR: El SHA es requerido y debe ser un string válido.\n\n` +
-                            `El SHA debe ser una cadena de texto obtenida de search_code.\n` +
-                            `Ejemplo: "a1b2c3d4e5f6789"\n\n` +
-                            `Error registrado en pampa_error.log`
+                        text: `ERROR: SHA is required and must be a valid string.\n\n` +
+                            `SHA must be a text string obtained from search_code.\n` +
+                            `Example: "a1b2c3d4e5f6789"\n\n` +
+                            `Error logged to pampa_error.log`
                     }],
                     isError: true
                 };
@@ -286,7 +286,7 @@ server.tool(
             const cleanSha = sha.trim();
 
             if (cleanSha.length === 0) {
-                await errorLogger.logAsync(new Error('SHA vacío después de trim'), {
+                await errorLogger.logAsync(new Error('SHA empty after trim'), {
                     ...context,
                     originalSha: sha,
                     cleanSha: cleanSha
@@ -295,9 +295,9 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `ERROR: El SHA no puede estar vacío.\n\n` +
-                            `Proporciona un SHA válido obtenido de search_code.\n\n` +
-                            `Error registrado en pampa_error.log`
+                        text: `ERROR: SHA cannot be empty.\n\n` +
+                            `Provide a valid SHA obtained from search_code.\n\n` +
+                            `Error logged to pampa_error.log`
                     }],
                     isError: true
                 };
@@ -320,12 +320,12 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR obteniendo chunk: ${error.message}\n\n` +
-                        `Detalles:\n` +
-                        `- SHA solicitado: ${sha}\n` +
+                    text: `ERROR getting chunk: ${error.message}\n\n` +
+                        `Details:\n` +
+                        `- Requested SHA: ${sha}\n` +
                         `- Timestamp: ${context.timestamp}\n` +
-                        `- Directorio chunks: ${fs.existsSync('.pampa/chunks') ? 'Existe' : 'No encontrado'}\n\n` +
-                        `Error registrado en pampa_error.log`
+                        `- Chunks directory: ${fs.existsSync('.pampa/chunks') ? 'Exists' : 'Not found'}\n\n` +
+                        `Error logged to pampa_error.log`
                 }],
                 isError: true
             };
@@ -334,25 +334,25 @@ server.tool(
 );
 
 /**
- * Herramienta para indexar un proyecto
+ * Tool to index a project
  */
 server.tool(
     "index_project",
     {
-        path: z.string().optional().default(".").describe("Ruta del proyecto a indexar (por defecto: directorio actual)"),
-        provider: z.string().optional().default("auto").describe("Proveedor de embeddings (auto|openai|transformers|ollama|cohere)")
+        path: z.string().optional().default(".").describe("Path of the project to index (default: current directory)"),
+        provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)")
     },
     async ({ path: projectPath, provider }) => {
         const context = { projectPath, provider, timestamp: new Date().toISOString() };
 
         try {
-            // Limpiar y validar parámetros
+            // Clean and validate parameters
             const cleanPath = projectPath ? projectPath.trim() : '.';
             const cleanProvider = provider ? provider.trim() : 'auto';
 
-            // Verificar que el directorio existe
+            // Verify directory exists
             if (!fs.existsSync(cleanPath)) {
-                throw new Error(`El directorio ${cleanPath} no existe`);
+                throw new Error(`Directory ${cleanPath} does not exist`);
             }
 
             await safeAsyncCall(
@@ -363,13 +363,13 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `Proyecto indexado exitosamente en: ${cleanPath}\n` +
-                        `Proveedor: ${cleanProvider}\n\n` +
-                        `Archivos creados:\n` +
+                    text: `Project indexed successfully at: ${cleanPath}\n` +
+                        `Provider: ${cleanProvider}\n\n` +
+                        `Files created:\n` +
                         `- ${fs.existsSync(path.join(cleanPath, 'pampa.codemap.json')) ? 'OK' : 'ERROR'} pampa.codemap.json\n` +
                         `- ${fs.existsSync(path.join(cleanPath, '.pampa/pampa.db')) ? 'OK' : 'ERROR'} .pampa/pampa.db\n` +
                         `- ${fs.existsSync(path.join(cleanPath, '.pampa/chunks')) ? 'OK' : 'ERROR'} .pampa/chunks/\n\n` +
-                        `Ahora puedes usar search_code para buscar funciones y clases.`
+                        `You can now use search_code to find functions and classes.`
                 }]
             };
         } catch (error) {
@@ -378,17 +378,17 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR indexando proyecto: ${error.message}\n\n` +
-                        `Detalles técnicos:\n` +
-                        `- Directorio: ${projectPath}\n` +
-                        `- Proveedor: ${provider}\n` +
+                    text: `ERROR indexing project: ${error.message}\n\n` +
+                        `Technical details:\n` +
+                        `- Directory: ${projectPath}\n` +
+                        `- Provider: ${provider}\n` +
                         `- Timestamp: ${context.timestamp}\n\n` +
-                        `Error registrado en pampa_error.log\n\n` +
-                        `Posibles soluciones:\n` +
-                        `- Verifica que el directorio existe y es accesible\n` +
-                        `- Instala las dependencias necesarias (npm install)\n` +
-                        `- Prueba con un proveedor diferente\n` +
-                        `- Verifica permisos de escritura en el directorio`
+                        `Error logged to pampa_error.log\n\n` +
+                        `Possible solutions:\n` +
+                        `- Verify directory exists and is accessible\n` +
+                        `- Install necessary dependencies (npm install)\n` +
+                        `- Try with a different provider\n` +
+                        `- Check write permissions in the directory`
                 }],
                 isError: true
             };
@@ -397,18 +397,18 @@ server.tool(
 );
 
 /**
- * Herramienta para obtener estadísticas del proyecto indexado
+ * Tool to get indexed project statistics
  */
 server.tool(
     "get_project_stats",
     {
-        path: z.string().optional().default(".").describe("Ruta del proyecto")
+        path: z.string().optional().default(".").describe("Project path")
     },
     async ({ path: projectPath }) => {
         const context = { projectPath, timestamp: new Date().toISOString() };
 
         try {
-            // Limpiar parámetro
+            // Clean parameter
             const cleanPath = projectPath ? projectPath.trim() : '.';
             const codemapPath = path.join(cleanPath, 'pampa.codemap.json');
 
@@ -416,12 +416,12 @@ server.tool(
                 return {
                     content: [{
                         type: "text",
-                        text: `Proyecto no indexado en: ${cleanPath}\n\n` +
-                            `Usa index_project para indexar el proyecto primero.\n\n` +
-                            `Estado del directorio:\n` +
-                            `- Directorio existe: ${fs.existsSync(cleanPath) ? 'SI' : 'NO'}\n` +
-                            `- pampa.codemap.json: NO encontrado\n` +
-                            `- .pampa/: ${fs.existsSync(path.join(cleanPath, '.pampa')) ? 'SI' : 'NO'}`
+                        text: `Project not indexed at: ${cleanPath}\n\n` +
+                            `Use index_project to index the project first.\n\n` +
+                            `Directory status:\n` +
+                            `- Directory exists: ${fs.existsSync(cleanPath) ? 'YES' : 'NO'}\n` +
+                            `- pampa.codemap.json: NOT found\n` +
+                            `- .pampa/: ${fs.existsSync(path.join(cleanPath, '.pampa')) ? 'YES' : 'NO'}`
                     }]
                 };
             }
@@ -433,13 +433,13 @@ server.tool(
 
             const chunks = Object.values(codemap);
 
-            // Estadísticas por lenguaje
+            // Statistics by language
             const langStats = chunks.reduce((acc, chunk) => {
                 acc[chunk.lang] = (acc[chunk.lang] || 0) + 1;
                 return acc;
             }, {});
 
-            // Estadísticas por archivo
+            // Statistics by file
             const fileStats = chunks.reduce((acc, chunk) => {
                 acc[chunk.file] = (acc[chunk.file] || 0) + 1;
                 return acc;
@@ -448,20 +448,20 @@ server.tool(
             const topFiles = Object.entries(fileStats)
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10)
-                .map(([file, count]) => `  ${file}: ${count} funciones`)
+                .map(([file, count]) => `  ${file}: ${count} functions`)
                 .join('\n');
 
             const langStatsText = Object.entries(langStats)
-                .map(([lang, count]) => `  ${lang}: ${count} funciones`)
+                .map(([lang, count]) => `  ${lang}: ${count} functions`)
                 .join('\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `Estadisticas del proyecto: ${cleanPath}\n\n` +
-                        `Total de funciones indexadas: ${chunks.length}\n\n` +
-                        `Por lenguaje:\n${langStatsText}\n\n` +
-                        `Archivos con mas funciones:\n${topFiles}`
+                    text: `Project statistics: ${cleanPath}\n\n` +
+                        `Total indexed functions: ${chunks.length}\n\n` +
+                        `By language:\n${langStatsText}\n\n` +
+                        `Files with most functions:\n${topFiles}`
                 }]
             };
         } catch (error) {
@@ -470,12 +470,12 @@ server.tool(
             return {
                 content: [{
                     type: "text",
-                    text: `ERROR obteniendo estadísticas: ${error.message}\n\n` +
-                        `Detalles:\n` +
-                        `- Proyecto: ${projectPath}\n` +
+                    text: `ERROR getting statistics: ${error.message}\n\n` +
+                        `Details:\n` +
+                        `- Project: ${projectPath}\n` +
                         `- Timestamp: ${context.timestamp}\n\n` +
-                        `Error registrado en pampa_error.log\n\n` +
-                        `Verifica que el proyecto esté indexado correctamente`
+                        `Error logged to pampa_error.log\n\n` +
+                        `Verify the project is indexed correctly`
                 }],
                 isError: true
             };
@@ -484,11 +484,11 @@ server.tool(
 );
 
 // ============================================================================
-// RECURSOS (RESOURCES) - Exponen datos del proyecto
+// RESOURCES - Expose project data
 // ============================================================================
 
 /**
- * Recurso para obtener el mapa de código del proyecto
+ * Resource to get project code map
  */
 server.resource(
     "codemap",
@@ -501,7 +501,7 @@ server.resource(
                 return {
                     contents: [{
                         uri: uri.href,
-                        text: "Proyecto no indexado. Usa la herramienta index_project primero."
+                        text: "Project not indexed. Use index_project tool first."
                     }]
                 };
             }
@@ -510,7 +510,7 @@ server.resource(
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Mapa de código del proyecto:\n\n${codemap}`,
+                    text: `Project code map:\n\n${codemap}`,
                     mimeType: "application/json"
                 }]
             };
@@ -519,7 +519,7 @@ server.resource(
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Error cargando mapa de código: ${error.message}\n\nError registrado en pampa_error.log`
+                    text: `Error loading code map: ${error.message}\n\nError logged to pampa_error.log`
                 }]
             };
         }
@@ -527,20 +527,20 @@ server.resource(
 );
 
 /**
- * Recurso para obtener resumen del proyecto
+ * Resource to get project overview
  */
 server.resource(
     "overview",
     "pampa://overview",
     async (uri) => {
         try {
-            const results = await searchCode("", 20); // Obtener resumen
+            const results = await searchCode("", 20); // Get overview
 
             if (results.length === 0) {
                 return {
                     contents: [{
                         uri: uri.href,
-                        text: "Proyecto no indexado o vacío. Usa la herramienta index_project primero."
+                        text: "Project not indexed or empty. Use index_project tool first."
                     }]
                 };
             }
@@ -552,7 +552,7 @@ server.resource(
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Resumen del proyecto (${results.length} funciones principales):\n\n${overview}`
+                    text: `Project overview (${results.length} main functions):\n\n${overview}`
                 }]
             };
         } catch (error) {
@@ -560,7 +560,7 @@ server.resource(
             return {
                 contents: [{
                     uri: uri.href,
-                    text: `Error generando resumen: ${error.message}\n\nError registrado en pampa_error.log`
+                    text: `Error generating overview: ${error.message}\n\nError logged to pampa_error.log`
                 }]
             };
         }
@@ -568,54 +568,54 @@ server.resource(
 );
 
 // ============================================================================
-// PROMPTS - Plantillas reutilizables para interacciones con LLMs
+// PROMPTS - Reusable templates for LLM interactions
 // ============================================================================
 
 /**
- * Prompt para analizar código encontrado
+ * Prompt to analyze found code
  */
 server.prompt(
     "analyze_code",
     {
-        query: z.string().describe("Consulta de búsqueda"),
-        focus: z.string().optional().describe("Aspecto específico a analizar (ej: 'seguridad', 'rendimiento', 'bugs')")
+        query: z.string().describe("Search query"),
+        focus: z.string().optional().describe("Specific aspect to analyze (e.g. 'security', 'performance', 'bugs')")
     },
     ({ query, focus }) => ({
         messages: [{
             role: "user",
             content: {
                 type: "text",
-                text: `Analiza el código relacionado con: "${query}"${focus ? ` con enfoque en: ${focus}` : ''}\n\n` +
-                    `Pasos a seguir:\n` +
-                    `1. Usa search_code para encontrar funciones relevantes\n` +
-                    `2. Usa get_code_chunk para examinar el código específico\n` +
-                    `3. Proporciona un análisis detallado${focus ? ` enfocado en ${focus}` : ''}\n` +
-                    `4. Sugiere mejoras si es necesario`
+                text: `Analyze code related to: "${query}"${focus ? ` with focus on: ${focus}` : ''}\n\n` +
+                    `Steps to follow:\n` +
+                    `1. Use search_code to find relevant functions\n` +
+                    `2. Use get_code_chunk to examine specific code\n` +
+                    `3. Provide detailed analysis${focus ? ` focused on ${focus}` : ''}\n` +
+                    `4. Suggest improvements if necessary`
             }
         }]
     })
 );
 
 /**
- * Prompt para encontrar funciones similares
+ * Prompt to find similar functions
  */
 server.prompt(
     "find_similar_functions",
     {
-        functionality: z.string().describe("Descripción de la funcionalidad buscada")
+        functionality: z.string().describe("Description of the functionality sought")
     },
     ({ functionality }) => ({
         messages: [{
             role: "user",
             content: {
                 type: "text",
-                text: `Encuentra funciones existentes que implementen: "${functionality}"\n\n` +
-                    `Pasos:\n` +
-                    `1. Usa search_code con diferentes variaciones de la consulta\n` +
-                    `2. Examina los resultados con get_code_chunk\n` +
-                    `3. Identifica si ya existe una implementación similar\n` +
-                    `4. Si existe, explica cómo reutilizarla\n` +
-                    `5. Si no existe, sugiere dónde implementarla basándote en la estructura del proyecto`
+                text: `Find existing functions that implement: "${functionality}"\n\n` +
+                    `Steps:\n` +
+                    `1. Use search_code with different query variations\n` +
+                    `2. Examine results with get_code_chunk\n` +
+                    `3. Identify if a similar implementation already exists\n` +
+                    `4. If it exists, explain how to reuse it\n` +
+                    `5. If it doesn't exist, suggest where to implement it based on project structure`
             }
         }]
     })
@@ -625,30 +625,30 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    // El servidor ahora está ejecutándose y esperando conexiones MCP
-    // Solo logging a stderr para diagnóstico, no a stdout
+    // Server is now running and waiting for MCP connections
+    // Only stderr logging for diagnostics, not stdout
     if (process.env.PAMPA_DEBUG === 'true') {
-        console.error("🚀 Servidor MCP PAMPA iniciado y listo para conexiones");
-        console.error("📝 Sistema de logging de errores activado: pampa_error.log");
+        console.error("PAMPA MCP Server started and ready for connections");
+        console.error("Error logging system activated: pampa_error.log");
     }
 }
 
-// Manejar errores no capturados
+// Handle uncaught errors
 process.on('uncaughtException', (error) => {
-    console.error('❌ Error no capturado:', error);
+    console.error('Uncaught error:', error);
     errorLogger.log(error, { type: 'uncaughtException' });
     process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Promesa rechazada no manejada:', reason);
+    console.error('Unhandled promise rejection:', reason);
     errorLogger.log(new Error(reason), { type: 'unhandledRejection', promise: promise.toString() });
     process.exit(1);
 });
 
-// Ejecutar el servidor
+// Run server
 main().catch(error => {
-    console.error('❌ Error iniciando servidor MCP:', error);
+    console.error('Error starting MCP server:', error);
     errorLogger.log(error, { type: 'main_startup_error' });
     process.exit(1);
 });

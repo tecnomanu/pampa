@@ -1,29 +1,31 @@
-# PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto
+# PAMPA – Protocol for Augmented Memory of Project Artifacts
 
-**Versión 1.0.1** · **Compatible con MCP** · **Node.js**
+**Version 1.0.1** · **MCP Compatible** · **Node.js**
 
-Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – en un comando `npx`.
+Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
 
-## 🌟 ¿Por qué PAMPA?
+> 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version**
 
-Los agentes de modelos de lenguaje grandes pueden leer miles de tokens, pero los proyectos fácilmente alcanzan millones de caracteres. Sin una capa de recuperación inteligente, los agentes:
+## 🌟 Why PAMPA?
 
--   **Recrean funciones** que ya existen
--   **Nombran mal las APIs** (newUser vs. createUser)
--   **Desperdician tokens** cargando código repetitivo (`vendor/`, `node_modules/`...)
--   **Fallan** cuando el repositorio crece
+Large language model agents can read thousands of tokens, but projects easily reach millions of characters. Without an intelligent retrieval layer, agents:
 
-PAMPA resuelve esto convirtiendo tu repositorio en un **grafo de memoria de código**:
+-   **Recreate functions** that already exist
+-   **Misname APIs** (newUser vs. createUser)
+-   **Waste tokens** loading repetitive code (`vendor/`, `node_modules/`...)
+-   **Fail** when the repository grows
 
-1. **Chunking** – Cada función/clase se convierte en un chunk atómico
-2. **Embedding** – Los chunks se vectorizan con `text-embedding-3-large`
-3. **Indexing** – Vectores + metadatos viven en SQLite local
-4. **Codemap** – Un `pampa.codemap.json` ligero se commitea a git para que el contexto siga al repo
-5. **Serving** – Un servidor MCP expone herramientas para buscar y obtener código
+PAMPA solves this by turning your repository into a **code memory graph**:
 
-Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, obtener y mantenerse sincronizado – sin escanear todo el árbol.
+1. **Chunking** – Each function/class becomes an atomic chunk
+2. **Embedding** – Chunks are vectorized with `text-embedding-3-large`
+3. **Indexing** – Vectors + metadata live in local SQLite
+4. **Codemap** – A lightweight `pampa.codemap.json` commits to git so context follows the repo
+5. **Serving** – An MCP server exposes tools to search and retrieve code
 
-## 🏗️ Arquitectura
+Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and stay synchronized – without scanning the entire tree.
+
+## 🏗️ Architecture
 
 ```
 ┌──────────── Repo (git) ───────────┐
@@ -49,158 +51,37 @@ Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, o
 └────────────────────┘
 ```
 
-### Componentes Clave
+### Key Components
 
-| Capa             | Rol                                                                 | Tecnología                      |
-| ---------------- | ------------------------------------------------------------------- | ------------------------------- |
-| **Indexer**      | Corta código en chunks semánticos, embeds, escribe codemap y SQLite | tree-sitter, openai@v4, sqlite3 |
-| **Codemap**      | JSON amigable con Git con {file, symbol, sha, lang} por chunk       | JSON plano                      |
-| **Chunks dir**   | Cuerpos .gz de código (carga perezosa)                              | gzip                            |
-| **SQLite**       | Almacena vectores y metadatos                                       | sqlite3                         |
-| **Servidor MCP** | Expone herramientas y recursos sobre el protocolo MCP estándar      | @modelcontextprotocol/sdk       |
+| Layer          | Role                                                              | Technology                      |
+| -------------- | ----------------------------------------------------------------- | ------------------------------- |
+| **Indexer**    | Cuts code into semantic chunks, embeds, writes codemap and SQLite | tree-sitter, openai@v4, sqlite3 |
+| **Codemap**    | Git-friendly JSON with {file, symbol, sha, lang} per chunk        | Plain JSON                      |
+| **Chunks dir** | .gz code bodies (lazy loading)                                    | gzip                            |
+| **SQLite**     | Stores vectors and metadata                                       | sqlite3                         |
+| **MCP Server** | Exposes tools and resources over standard MCP protocol            | @modelcontextprotocol/sdk       |
 
-## 🚀 Inicio Rápido
+## 🚀 MCP Installation & Setup
 
-### 1. Instalar e indexar el repo actual
+### 1. Index your current repo
 
 ```bash
-# Con modelo local (gratis, privado)
+# With local model (free, private)
 npx pampa index --provider transformers
 
-# O con OpenAI (mejor calidad, requiere API key)
-export OPENAI_API_KEY="tu-api-key"
+# Or with OpenAI (better quality, requires API key)
+export OPENAI_API_KEY="your-api-key"
 npx pampa index --provider openai
 
-# O auto-detectar el mejor disponible
+# Or auto-detect best available
 npx pampa index
 ```
 
-### 2. Ejecutar el servidor MCP
+### 2. Configure your MCP client
 
-```bash
-npx pampa mcp
-```
+#### Claude Desktop
 
-### 3. Probar búsqueda via CLI
-
-```bash
-npx pampa search "función de autenticación"
-```
-
-### 4. Configurar tu cliente MCP
-
-El servidor MCP se ejecuta via stdio. Configura tu cliente MCP (Claude Desktop, Cursor, etc.) para conectarse a:
-
-```bash
-npx pampa mcp
-```
-
-## 🧠 Proveedores de Embeddings
-
-PAMPA soporta múltiples proveedores para generar embeddings de código:
-
-| Proveedor           | Costo                    | Privacidad | Instalación                                                 |
-| ------------------- | ------------------------ | ---------- | ----------------------------------------------------------- |
-| **Transformers.js** | 🟢 Gratis                | 🟢 Total   | `npm install @xenova/transformers`                          |
-| **Ollama**          | 🟢 Gratis                | 🟢 Total   | [Instalar Ollama](https://ollama.ai) + `npm install ollama` |
-| **OpenAI**          | 🔴 ~$0.10/1000 funciones | 🔴 Ninguna | Configurar `OPENAI_API_KEY`                                 |
-| **Cohere**          | 🟡 ~$0.05/1000 funciones | 🔴 Ninguna | Configurar `COHERE_API_KEY` + `npm install cohere-ai`       |
-
-**Recomendación:** Usa **Transformers.js** para desarrollo personal (gratis y privado) u **OpenAI** para máxima calidad.
-
-Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles completos.
-
-## 📋 Referencia CLI
-
-| Comando                                  | Propósito                                                 |
-| ---------------------------------------- | --------------------------------------------------------- |
-| `npx pampa index [path] [--provider X]`  | Escanear proyecto, actualizar SQLite y pampa.codemap.json |
-| `npx pampa mcp`                          | Iniciar servidor MCP (stdio)                              |
-| `npx pampa search <query> [-k N] [-p X]` | Búsqueda vectorial local rápida (debug)                   |
-| `npx pampa info`                         | Mostrar estadísticas del proyecto indexado                |
-
-**Proveedores disponibles:** `auto` (default), `transformers`, `openai`, `ollama`, `cohere`
-
-## 🔧 Herramientas MCP Disponibles
-
-El servidor MCP expone las siguientes herramientas que los agentes pueden usar:
-
-### `search_code`
-
-Busca código semánticamente en el proyecto indexado.
-
--   **Parámetros**: `query` (string), `limit` (number, opcional)
--   **Ejemplo**: "función de autenticación", "manejo de errores"
-
-### `get_code_chunk`
-
-Obtiene el código completo de un chunk específico.
-
--   **Parámetros**: `sha` (string)
--   **Retorna**: Código fuente completo
-
-### `index_project`
-
-Indexa un proyecto desde el agente.
-
--   **Parámetros**: `path` (string, opcional)
--   **Efecto**: Actualiza la base de datos y codemap
-
-### `get_project_stats`
-
-Obtiene estadísticas del proyecto indexado.
-
--   **Parámetros**: `path` (string, opcional)
--   **Retorna**: Estadísticas por lenguaje y archivo
-
-## 📊 Recursos MCP Disponibles
-
-### `pampa://codemap`
-
-Acceso al mapa de código completo del proyecto.
-
-### `pampa://overview`
-
-Resumen de las principales funciones del proyecto.
-
-## 🎯 Prompts MCP Disponibles
-
-### `analyze_code`
-
-Plantilla para analizar código encontrado con enfoque específico.
-
-### `find_similar_functions`
-
-Plantilla para encontrar funciones existentes similares.
-
-## 🔍 Cómo Funciona la Recuperación
-
--   **Búsqueda vectorial** – Similitud coseno en `text-embedding-3-large` (3,072-D)
--   **Fallback de resumen** – Si un agente envía una consulta vacía, PAMPA retorna los resúmenes de nivel superior para que el agente entienda el territorio
--   **Granularidad de chunk** – Por defecto = función/método/clase. Ajustable por lenguaje
-
-## 📝 Decisiones de Diseño
-
--   **Solo Node** → Los devs ejecutan todo via `npx`, sin Python, sin Docker
--   **SQLite sobre HelixDB** → Una base de datos local para vectores y relaciones, sin dependencias externas
--   **Codemap commiteado** → El contexto viaja con el repo → clonar funciona offline
--   **Granularidad de chunk** → Por defecto = función/método/clase. Ajustable por lenguaje
--   **Solo lectura por defecto** → El servidor solo expone métodos de lectura. La escritura se hace via CLI
-
-## 🧩 Extendiendo PAMPA
-
-| Idea                          | Pista                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Más lenguajes**             | Instala la gramática tree-sitter y agrégala a `LANG_RULES`                                      |
-| **Embeddings personalizados** | Exporta `OPENAI_API_KEY` o cambia OpenAI por cualquier proveedor que retorne `vector: number[]` |
-| **Seguridad**                 | Ejecuta detrás de un proxy reverso con autenticación                                            |
-| **Plugin VS Code**            | Apunta un cliente MCP WebView a tu servidor local                                               |
-
-## 🔧 Configuración para Clientes MCP
-
-### Claude Desktop
-
-Agrega a tu configuración de Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` en macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -209,45 +90,160 @@ Agrega a tu configuración de Claude Desktop (`~/Library/Application Support/Cla
 			"command": "npx",
 			"args": ["pampa", "mcp"],
 			"env": {
-				"OPENAI_API_KEY": "tu-api-key-aqui"
+				"OPENAI_API_KEY": "your-api-key-here"
 			}
 		}
 	}
 }
 ```
 
-**Nota:** La `OPENAI_API_KEY` es opcional. Sin ella, PAMPA usará modelos locales automáticamente.
+**Note:** The `OPENAI_API_KEY` is optional. Without it, PAMPA will use local models automatically.
 
-### Cursor
+#### Cursor
 
-Configura Cursor para usar PAMPA como servidor MCP en la configuración del workspace.
+Configure Cursor to use PAMPA as an MCP server in your workspace settings.
 
-## 🤝 Contribuyendo
+### 3. Start using semantic search
 
-1. **Fork** → crear rama de feature (`feat/...`)
-2. **Ejecutar** `npm test` (próximamente) & `npx pampa index` antes del PR
-3. **Abrir PR** con contexto: por qué + screenshots/logs
+Once configured, your AI agent can:
 
-Todas las discusiones en GitHub Issues.
+```
+🔍 Search: "authentication function"
+📄 Get code: Use the SHA from search results
+📊 Stats: Get project overview and statistics
+```
 
-## 📜 Licencia
+## 🧠 Embedding Providers
 
-MIT – haz lo que quieras, solo mantén el copyright.
+PAMPA supports multiple providers for generating code embeddings:
 
-## 🚀 Ejemplo de Uso
+| Provider            | Cost                     | Privacy  | Installation                                               |
+| ------------------- | ------------------------ | -------- | ---------------------------------------------------------- |
+| **Transformers.js** | 🟢 Free                  | 🟢 Total | `npm install @xenova/transformers`                         |
+| **Ollama**          | 🟢 Free                  | 🟢 Total | [Install Ollama](https://ollama.ai) + `npm install ollama` |
+| **OpenAI**          | 🔴 ~$0.10/1000 functions | 🔴 None  | Set `OPENAI_API_KEY`                                       |
+| **Cohere**          | 🟡 ~$0.05/1000 functions | 🔴 None  | Set `COHERE_API_KEY` + `npm install cohere-ai`             |
+
+**Recommendation:** Use **Transformers.js** for personal development (free and private) or **OpenAI** for maximum quality.
+
+## 📋 CLI Usage
+
+| Command                                  | Purpose                                            |
+| ---------------------------------------- | -------------------------------------------------- |
+| `npx pampa index [path] [--provider X]`  | Scan project, update SQLite and pampa.codemap.json |
+| `npx pampa mcp`                          | Start MCP server (stdio)                           |
+| `npx pampa search <query> [-k N] [-p X]` | Fast local vector search (debug)                   |
+| `npx pampa info`                         | Show indexed project statistics                    |
+
+**Available providers:** `auto` (default), `transformers`, `openai`, `ollama`, `cohere`
+
+### Quick CLI Example
 
 ```bash
-# Indexar tu proyecto
+# Index your project
 npx pampa index
 
-# Ver estadísticas
+# View statistics
 npx pampa info
 
-# Buscar funciones
-npx pampa search "validación de usuario"
+# Search functions
+npx pampa search "user validation"
 
-# Iniciar servidor MCP para agentes
+# Start MCP server for agents
 npx pampa mcp
 ```
 
-¡Feliz hacking! 💙
+## 🔧 Available MCP Tools
+
+The MCP server exposes these tools that agents can use:
+
+### `search_code`
+
+Search code semantically in the indexed project.
+
+-   **Parameters**: `query` (string), `limit` (number, optional)
+-   **Example**: "authentication function", "error handling"
+
+### `get_code_chunk`
+
+Get complete code of a specific chunk.
+
+-   **Parameters**: `sha` (string)
+-   **Returns**: Complete source code
+
+### `index_project`
+
+Index a project from the agent.
+
+-   **Parameters**: `path` (string, optional)
+-   **Effect**: Updates database and codemap
+
+### `get_project_stats`
+
+Get indexed project statistics.
+
+-   **Parameters**: `path` (string, optional)
+-   **Returns**: Statistics by language and file
+
+## 📊 Available MCP Resources
+
+### `pampa://codemap`
+
+Access to the complete project code map.
+
+### `pampa://overview`
+
+Summary of the project's main functions.
+
+## 🎯 Available MCP Prompts
+
+### `analyze_code`
+
+Template to analyze found code with specific focus.
+
+### `find_similar_functions`
+
+Template to find existing similar functions.
+
+## 🔍 How Retrieval Works
+
+-   **Vector search** – Cosine similarity on `text-embedding-3-large` (3,072-D)
+-   **Summary fallback** – If an agent sends an empty query, PAMPA returns top-level summaries so the agent understands the territory
+-   **Chunk granularity** – Default = function/method/class. Adjustable by language
+
+## 📝 Design Decisions
+
+-   **Node only** → Devs run everything via `npx`, no Python, no Docker
+-   **SQLite over HelixDB** → One local database for vectors and relations, no external dependencies
+-   **Committed codemap** → Context travels with the repo → cloning works offline
+-   **Chunk granularity** → Default = function/method/class. Adjustable by language
+-   **Read-only by default** → Server only exposes read methods. Writing is done via CLI
+
+## 🧩 Extending PAMPA
+
+| Idea                  | Hint                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| **More languages**    | Install tree-sitter grammar and add to `LANG_RULES`                                         |
+| **Custom embeddings** | Export `OPENAI_API_KEY` or replace OpenAI with any provider that returns `vector: number[]` |
+| **Security**          | Run behind a reverse proxy with authentication                                              |
+| **VS Code Plugin**    | Point an MCP WebView client to your local server                                            |
+
+## 🤝 Contributing
+
+For guidelines on contributing to this project, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## 📜 Code of Conduct
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in our project.
+
+## 📄 License
+
+This project is licensed under the ISC License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🇦🇷 About PAMPA
+
+**PAMPA** is an Argentine word referring to the vast, fertile plains of South America. Just as the Pampas connect different regions and provide rich, accessible resources, PAMPA connects your codebase to AI agents, providing rich, accessible code memory across your entire project.
+
+Made with ❤️ in Argentina 🇦🇷
