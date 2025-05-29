@@ -43,6 +43,9 @@ run_test "test-mcp.js" "MCP Server Basic Test"
 # Run search code test
 run_test "test-search-code.js" "Search Code Validation Test"
 
+# Run database error handling test  
+run_test "test-database-errors.js" "Database Error Handling Test"
+
 # Summary
 echo "========================================="
 echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"

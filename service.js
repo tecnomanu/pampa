@@ -366,6 +366,18 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         const queryEmbedding = await embeddingProvider.generateEmbedding(query);
 
         const { dbPath } = getPaths();
+
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return {
+                success: false,
+                error: 'database_not_found',
+                message: `Database not found at ${dbPath}. Project needs to be indexed first.`,
+                suggestion: `Run index_project on directory: ${workingPath}`,
+                results: []
+            };
+        }
+
         const db = new sqlite3.Database(dbPath);
         const all = promisify(db.all.bind(db));
 
@@ -459,6 +471,18 @@ export async function getOverview(limit = 20, workingPath = '.') {
 
     try {
         const { dbPath } = getPaths();
+
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return {
+                success: false,
+                error: 'database_not_found',
+                message: `Database not found at ${dbPath}. Project needs to be indexed first.`,
+                suggestion: `Run index_project on directory: ${workingPath}`,
+                results: []
+            };
+        }
+
         const db = new sqlite3.Database(dbPath);
         const all = promisify(db.all.bind(db));
 

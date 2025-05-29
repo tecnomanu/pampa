@@ -290,6 +290,21 @@ server.tool(
             );
 
             if (!results.success) {
+                // Handle database not found error specifically
+                if (results.error === 'database_not_found') {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: `📋 Project not indexed yet!\n\n` +
+                                `🔍 Database not found: ${cleanPath}/.pampa/pampa.db\n\n` +
+                                `💡 To search code, you need to index the project first:\n` +
+                                `   • Use index_project tool on directory: ${cleanPath}\n` +
+                                `   • This will create the database and index your code\n` +
+                                `   • Then you can search with queries like: "${cleanQuery}"`
+                        }]
+                    };
+                }
+
                 if (results.error === 'no_chunks_found') {
                     return {
                         content: [{
@@ -643,6 +658,22 @@ server.tool(
             const overviewResult = await service.getOverview(20, cleanPath);
 
             if (!overviewResult.success) {
+                // Check if this is specifically a database not found error
+                if (overviewResult.error === 'database_not_found') {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: `📋 Project not indexed yet!\n\n` +
+                                `🔍 Database not found: ${cleanPath}/.pampa/pampa.db\n\n` +
+                                `💡 To get started, run the indexing tool first:\n` +
+                                `   • Use index_project tool on directory: ${cleanPath}\n` +
+                                `   • This will create the database and index your code\n` +
+                                `   • Then you can use get_project_stats to see the overview`
+                        }]
+                    };
+                }
+
+                // Handle other errors
                 return {
                     content: [{
                         type: "text",
