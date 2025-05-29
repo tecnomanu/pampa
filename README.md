@@ -16,15 +16,7 @@
 
 Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
 
-> 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version**
->
-> 🤖 **[Are you an AI Agent? Click here for setup instructions →](README_FOR_AGENTS.md)**
-
-## 🤖 For AI Agents & Humans
-
-**🤖 If you're an AI agent:** Read the [complete setup guide for agents →](README_FOR_AGENTS.md)
-
-**👤 If you're human:** Share the [agent setup guide](README_FOR_AGENTS.md) with your AI assistant to automatically configure PAMPA!
+> 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
 
 ## 🌟 Why PAMPA?
 
@@ -44,6 +36,12 @@ PAMPA solves this by turning your repository into a **code memory graph**:
 5. **Serving** – An MCP server exposes tools to search and retrieve code
 
 Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and stay synchronized – without scanning the entire tree.
+
+## 🤖 For AI Agents & Humans
+
+> **🤖 If you're an AI agent:** Read the [complete setup guide for agents →](README_FOR_AGENTS.md)
+> or
+> **👤 If you're human:** Share the [agent setup guide](README_FOR_AGENTS.md) with your AI assistant to automatically configure PAMPA!
 
 ## 📚 Table of Contents
 

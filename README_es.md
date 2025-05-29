@@ -16,15 +16,7 @@
 
 Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – en un comando `npx`.
 
-> 🇪🇸 **Versión en Español** | 🇺🇸 **[English Version](README.md)**
->
-> 🤖 **[¿Eres un Agente de IA? Haz clic aquí para instrucciones de configuración →](README_FOR_AGENTS.md)**
-
-## 🤖 Para Agentes de IA y Humanos
-
-**🤖 Si eres un agente de IA:** Lee la [guía completa de configuración para agentes →](README_FOR_AGENTS.md)
-
-**👤 Si eres humano:** Comparte la [guía para agentes](README_FOR_AGENTS.md) con tu asistente de IA para configurar PAMPA automáticamente!
+> 🇪🇸 **Versión en Español** | 🇺🇸 **[English Version](README.md)** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
 
 ## 🌟 ¿Por qué PAMPA?
 
@@ -44,6 +36,12 @@ PAMPA resuelve esto convirtiendo tu repositorio en un **grafo de memoria de cód
 5. **Serving** – Un servidor MCP expone herramientas para buscar y obtener código
 
 Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, obtener y mantenerse sincronizado – sin escanear todo el árbol.
+
+## 🤖 Para Agentes de IA y Humanos
+
+> **🤖 Si eres un agente de IA:** Lee la [guía completa de configuración para agentes →](README_FOR_AGENTS.md)
+> or
+> **👤 Si eres humano:** Comparte la [guía para agentes](README_FOR_AGENTS.md) con tu asistente de IA para configurar PAMPA automáticamente!
 
 ## 📚 Índice
 
