@@ -1,6 +1,6 @@
 {
 	"name": "pampa",
-	"version": "1.3.5",
+	"version": "1.4.0",
 	"description": "PAMPA – Protocol for Augmented Memory of Project Artifacts (MCP compatible)",
 	"author": "Manuel Bruña",
 	"type": "module",

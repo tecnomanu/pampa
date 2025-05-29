@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/tecnomanu/pampa/compare/v1.3.4...v1.4.0) (2025-05-29)
+
+
+### Bug Fixes
+
+* implement global base path context for MCP tools - Add setBasePath() function to manage working directory context - Update all service functions to use dynamic paths instead of hardcoded constants - Fix MCP tools to work correctly with path parameter - Resolve issue where database and chunks were created in wrong directory - All MCP operations now respect the specified working path ([0981eb0](https://github.com/tecnomanu/pampa/commit/0981eb0b183e69cca0652c735fdb7b129f812241))
+
+
+### Features
+
+* improve MCP logging and tool documentation - Add debug mode support with --debug flag - Create logs in working directory instead of server directory - Update tool descriptions to clarify path parameter usage - Improve error messages with database location info - Add debug logging for all MCP tool operations - Enhanced user feedback with emojis and clearer formatting ([18ec399](https://github.com/tecnomanu/pampa/commit/18ec39938562e7727508b965a183a6856d3e3390))
+
 ## [1.3.4](https://github.com/tecnomanu/pampa/compare/v1.3.3...v1.3.4) (2025-05-29)
 
 
