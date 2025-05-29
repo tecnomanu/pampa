@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/tecnomanu/pampa/compare/v1.2.0...v1.2.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* 🔧 make CLI version read from package.json dynamically ([9fd4d1d](https://github.com/tecnomanu/pampa/commit/9fd4d1d188e5c7dd191426678b30e8a893a917a4))
+
 # [1.2.0](https://github.com/tecnomanu/pampa/compare/v1.1.0...v1.2.0) (2025-05-29)
 
 
