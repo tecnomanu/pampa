@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/tecnomanu/pampa/compare/v1.7.0...v1.8.0) (2025-05-29)
+
+
+### Features
+
+* **indexer:** ✨ mejorar extracción de símbolos para mostrar nombres reales de funciones PHP ([c8a3124](https://github.com/tecnomanu/pampa/commit/c8a3124d8d03fd7386ad2cc53f6019a639df5ff5))
+
 # [1.7.0](https://github.com/tecnomanu/pampa/compare/v1.6.1...v1.7.0) (2025-05-29)
 
 
