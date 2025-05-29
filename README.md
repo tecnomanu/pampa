@@ -20,6 +20,12 @@ Give your AI agents an always-updated, queryable memory of any codebase – in o
 >
 > 🤖 **[Are you an AI Agent? Click here for setup instructions →](README_FOR_AGENTS.md)**
 
+## 🤖 For AI Agents & Humans
+
+**🤖 If you're an AI agent:** Read the [complete setup guide for agents →](README_FOR_AGENTS.md)
+
+**👤 If you're human:** Share the [agent setup guide](README_FOR_AGENTS.md) with your AI assistant to automatically configure PAMPA!
+
 ## 🌟 Why PAMPA?
 
 Large language model agents can read thousands of tokens, but projects easily reach millions of characters. Without an intelligent retrieval layer, agents:
@@ -39,7 +45,7 @@ PAMPA solves this by turning your repository into a **code memory graph**:
 
 Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and stay synchronized – without scanning the entire tree.
 
-## 📑 Table of Contents
+## �� Table of Contents
 
 -   [🚀 MCP Installation (Recommended)](#-mcp-installation-recommended)
 -   [💻 Direct CLI Usage](#-direct-cli-usage)
@@ -51,21 +57,7 @@ Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and sta
 
 ## 🚀 MCP Installation (Recommended)
 
-### 1. Index your project
-
-```bash
-# With local model (free, private)
-npx pampa index --provider transformers
-
-# Or with OpenAI (better quality, requires API key)
-export OPENAI_API_KEY="your-api-key"
-npx pampa index --provider openai
-
-# Or auto-detect best available
-npx pampa index
-```
-
-### 2. Configure your MCP client
+### 1. Configure your MCP client
 
 #### Claude Desktop
 
@@ -76,18 +68,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 	"mcpServers": {
 		"pampa": {
 			"command": "npx",
-			"args": ["-y", "pampa", "mcp"],
-			"env": {
-				"OPENAI_API_KEY": "your-api-key-here"
-			}
+			"args": ["-y", "pampa", "mcp"]
 		}
 	}
 }
 ```
-
-**Debug Mode:** To enable detailed logging, use `["-y", "pampa", "mcp", "--debug"]` in the args array.
-
-**Note:** The `OPENAI_API_KEY` is optional. Without it, PAMPA will use local models automatically.
 
 #### Cursor
 
@@ -104,9 +89,17 @@ Configure Cursor by creating or editing the `mcp.json` file in your configuratio
 }
 ```
 
-The configuration is identical to Claude Desktop. Cursor uses the same MCP configuration file system.
+### 2. Let your AI agent handle the indexing
 
-### 3. Install the rule for your agent
+**Your AI agent should automatically:**
+
+-   Check if the project is indexed with `get_project_stats`
+-   Index the project with `index_project` if needed
+-   Keep it updated with `update_project` after changes
+
+**Need to index manually?** See [Direct CLI Usage](#-direct-cli-usage) section.
+
+### 3. Install the usage rule for your agent
 
 **Additionally, install this rule in your application so it uses PAMPA effectively:**
 
@@ -125,7 +118,21 @@ Once configured, your AI agent can:
 
 ## 💻 Direct CLI Usage
 
-For direct terminal usage without MCP:
+For direct terminal usage or manual project indexing:
+
+### Initial Project Indexing
+
+```bash
+# With local model (free, private)
+npx pampa index --provider transformers
+
+# Or with OpenAI (better quality, set OPENAI_API_KEY first)
+export OPENAI_API_KEY="your-api-key"
+npx pampa index --provider openai
+
+# Or auto-detect best available
+npx pampa index
+```
 
 ### Available Commands
 

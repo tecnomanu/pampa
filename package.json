@@ -19,7 +19,10 @@
 		"service.js",
 		"providers.js",
 		"mcp-server.js",
-		"README.md"
+		"README.md",
+		"README_es.md",
+		"README_FOR_AGENTS.md",
+		"RULE_FOR_PAMPA_MCP.md"
 	],
 	"scripts": {
 		"index": "node cli.js index",

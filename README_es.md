@@ -20,6 +20,12 @@ Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualqu
 >
 > 🤖 **[¿Eres un Agente de IA? Haz clic aquí para instrucciones de configuración →](README_FOR_AGENTS.md)**
 
+## 🤖 Para Agentes de IA y Humanos
+
+**🤖 Si eres un agente de IA:** Lee la [guía completa de configuración para agentes →](README_FOR_AGENTS.md)
+
+**👤 Si eres humano:** Comparte la [guía para agentes](README_FOR_AGENTS.md) con tu asistente de IA para configurar PAMPA automáticamente!
+
 ## 🌟 ¿Por qué PAMPA?
 
 Los agentes de modelos de lenguaje grandes pueden leer miles de tokens, pero los proyectos fácilmente alcanzan millones de caracteres. Sin una capa de recuperación inteligente, los agentes:
@@ -51,21 +57,7 @@ Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, o
 
 ## 🚀 Instalación como MCP (Recomendado)
 
-### 1. Indexa tu proyecto
-
-```bash
-# Con modelo local (gratis, privado)
-npx pampa index --provider transformers
-
-# O con OpenAI (mejor calidad, requiere API key)
-export OPENAI_API_KEY="tu-api-key"
-npx pampa index --provider openai
-
-# O auto-detectar el mejor disponible
-npx pampa index
-```
-
-### 2. Configura tu cliente MCP
+### 1. Configura tu cliente MCP
 
 #### Claude Desktop
 
@@ -76,18 +68,11 @@ Agrega a tu configuración de Claude Desktop (`~/Library/Application Support/Cla
 	"mcpServers": {
 		"pampa": {
 			"command": "npx",
-			"args": ["-y", "pampa", "mcp"],
-			"env": {
-				"OPENAI_API_KEY": "tu-api-key-aqui"
-			}
+			"args": ["-y", "pampa", "mcp"]
 		}
 	}
 }
 ```
-
-**Modo Debug:** Para habilitar logging detallado, usa `["-y", "pampa", "mcp", "--debug"]` en el array de args.
-
-**Nota:** La `OPENAI_API_KEY` es opcional. Sin ella, PAMPA usará modelos locales automáticamente.
 
 #### Cursor
 
@@ -104,9 +89,17 @@ Configura Cursor creando o editando el archivo `mcp.json` en tu directorio de co
 }
 ```
 
-La configuración es idéntica a Claude Desktop. Cursor utiliza el mismo sistema de archivos de configuración MCP.
+### 2. Deja que tu agente de IA maneje el indexado
 
-### 3. Instala la regla para tu agente
+**Tu agente de IA debería automáticamente:**
+
+-   Verificar si el proyecto está indexado con `get_project_stats`
+-   Indexar el proyecto con `index_project` si es necesario
+-   Mantenerlo actualizado con `update_project` después de cambios
+
+**¿Necesitas indexar manualmente?** Ver sección [Uso Directo con CLI](#-uso-directo-con-cli).
+
+### 3. Instala la regla de uso para tu agente
 
 **Además, instala esta regla en tu aplicación para que use PAMPA efectivamente:**
 
@@ -125,7 +118,21 @@ Una vez configurado, tu agente de IA puede:
 
 ## 💻 Uso Directo con CLI
 
-Para uso directo desde terminal sin MCP:
+Para uso directo desde terminal o indexado manual del proyecto:
+
+### Indexado Inicial del Proyecto
+
+```bash
+# Con modelo local (gratis, privado)
+npx pampa index --provider transformers
+
+# O con OpenAI (mejor calidad, configura OPENAI_API_KEY primero)
+export OPENAI_API_KEY="tu-api-key"
+npx pampa index --provider openai
+
+# O auto-detectar el mejor disponible
+npx pampa index
+```
 
 ### Comandos Disponibles
 
