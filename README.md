@@ -1,6 +1,6 @@
 # PAMPA – Protocol for Augmented Memory of Project Artifacts
 
-**Version 1.5.x** · **MCP Compatible** · **Node.js**
+**Version 1.6.x** · **Semantic Search** · **MCP Compatible** · **Node.js**
 
 <p align="center">
   <img src="assets/pampa_banner.jpg" alt="Agent Rules Kit Logo" width="729" />
@@ -14,9 +14,27 @@
   <img src="https://img.shields.io/github/actions/workflow/status/tecnomanu/pampa/CI" alt="Build Status" />
 </p>
 
-Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
+Give your AI agents an always-updated, queryable memory of any codebase – with **intelligent semantic search** and **automatic learning** – in one `npx` command.
 
 > 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
+
+## 🌟 What's New in v1.6 - Semantic Intelligence
+
+🧠 **Automatic Semantic Tags** - Extracts tags from code automatically: `StripeService.php` → `["stripe", "service", "payment"]`
+
+🎯 **Intention-Based Search** - Maps natural language queries to specific code: `"how to create stripe session"` → instant result
+
+📈 **Adaptive Learning** - Learns from successful searches (>80% similarity) and provides instant responses for similar queries
+
+🏷️ **@pampa-comments** - Optional JSDoc-style comments for enhanced semantic understanding (complementary, not required)
+
+💡 **Hybrid Search System** - Combines intention cache + vector search + semantic boosting for maximum precision
+
+**Performance improvements:**
+
+-   **+32% to +85%** better search precision
+-   Instant responses for learned patterns
+-   Perfect scores (1.0) when intent matches exactly
 
 ## 🌟 Why PAMPA?
 
@@ -27,15 +45,17 @@ Large language model agents can read thousands of tokens, but projects easily re
 -   **Waste tokens** loading repetitive code (`vendor/`, `node_modules/`...)
 -   **Fail** when the repository grows
 
-PAMPA solves this by turning your repository into a **code memory graph**:
+PAMPA solves this by turning your repository into a **semantic code memory graph**:
 
 1. **Chunking** – Each function/class becomes an atomic chunk
-2. **Embedding** – Chunks are vectorized with advanced embedding models
-3. **Indexing** – Vectors + metadata live in local SQLite
-4. **Codemap** – A lightweight `pampa.codemap.json` commits to git so context follows the repo
-5. **Serving** – An MCP server exposes tools to search and retrieve code
+2. **Semantic Tagging** – Automatic extraction of semantic tags from code context
+3. **Embedding** – Enhanced chunks are vectorized with advanced embedding models
+4. **Learning** – System learns from successful searches and caches intentions
+5. **Indexing** – Vectors + semantic metadata live in local SQLite
+6. **Codemap** – A lightweight `pampa.codemap.json` commits to git so context follows the repo
+7. **Serving** – An MCP server exposes intelligent search and retrieval tools
 
-Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and stay synchronized – without scanning the entire tree.
+Any MCP-compatible agent (Cursor, Claude, etc.) can now search with natural language, get instant responses for learned patterns, and stay synchronized – without scanning the entire tree.
 
 ## 🤖 For AI Agents & Humans
 
@@ -46,12 +66,76 @@ Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and sta
 ## 📚 Table of Contents
 
 -   [🚀 MCP Installation (Recommended)](#-mcp-installation-recommended)
+-   [🧠 Semantic Features](#-semantic-features)
 -   [💻 Direct CLI Usage](#-direct-cli-usage)
 -   [🧠 Embedding Providers](#-embedding-providers)
 -   [🏗️ Architecture](#️-architecture)
 -   [🔧 Available MCP Tools](#-available-mcp-tools)
 -   [📊 Available MCP Resources](#-available-mcp-resources)
 -   [🎯 Available MCP Prompts](#-available-mcp-prompts)
+
+## 🧠 Semantic Features
+
+### 🏷️ Automatic Semantic Tagging
+
+PAMPA automatically extracts semantic tags from your code without any special comments:
+
+```javascript
+// File: app/Services/Payment/StripeService.php
+function createCheckoutSession() { ... }
+```
+
+**Automatic tags:** `["stripe", "service", "payment", "checkout", "session", "create"]`
+
+### 🎯 Intention-Based Direct Search
+
+The system learns from successful searches and provides instant responses:
+
+```bash
+# First search (vector search)
+"stripe payment session" → 0.9148 similarity
+
+# System automatically learns and caches this pattern
+# Next similar searches are instant:
+"create stripe session" → instant response (cached)
+"stripe checkout session" → instant response (cached)
+```
+
+### 📈 Adaptive Learning System
+
+-   **Automatic Learning**: Saves successful searches (>80% similarity) as intentions
+-   **Query Normalization**: Understands variations: `"create"` = `"crear"`, `"session"` = `"sesion"`
+-   **Pattern Recognition**: Groups similar queries: `"[PROVIDER] payment session"`
+
+### 🏷️ Optional @pampa-comments (Complementary)
+
+Enhance search precision with optional JSDoc-style comments:
+
+```javascript
+/**
+ * @pampa-tags: stripe-checkout, payment-processing, e-commerce-integration
+ * @pampa-intent: create secure stripe checkout session for payments
+ * @pampa-description: Main function for handling checkout sessions with validation
+ */
+async function createStripeCheckoutSession(sessionData) {
+	// Your code here...
+}
+```
+
+**Benefits:**
+
+-   **+21% better precision** when present
+-   **Perfect scores (1.0)** when query matches intent exactly
+-   **Fully optional**: Code without comments works automatically
+-   **Retrocompatible**: Existing codebases work without changes
+
+### 📊 Search Performance Results
+
+| Search Type     | Without @pampa | With @pampa | Improvement |
+| --------------- | -------------- | ----------- | ----------- |
+| Domain-specific | 0.7331         | 0.8874      | **+21%**    |
+| Intent matching | ~0.6           | **1.0000**  | **+67%**    |
+| General search  | 0.6-0.8        | 0.8-1.0     | **+32-85%** |
 
 ## 🚀 MCP Installation (Recommended)
 

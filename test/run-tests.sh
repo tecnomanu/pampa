@@ -20,13 +20,13 @@ run_test() {
     
     echo -e "${YELLOW}Running${NC} $test_name..."
     
-    if node "test/$test_file" > /dev/null 2>&1; then
+    if node "$test_file" > /dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC} $test_name"
         ((TESTS_PASSED++))
     else
         echo -e "${RED}❌ FAIL${NC} $test_name"
         echo "   Error details:"
-        node "test/$test_file" 2>&1 | head -5 | sed 's/^/   /'
+        node "$test_file" 2>&1 | head -5 | sed 's/^/   /'
         ((TESTS_FAILED++))
     fi
     echo ""
@@ -34,7 +34,7 @@ run_test() {
 
 # Run diagnostics first
 echo -e "${YELLOW}🔍 Running diagnostics...${NC}"
-node test/pampa-diagnostics.js
+node pampa-diagnostics.js
 echo ""
 
 # Run MCP server test

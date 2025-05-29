@@ -1,11 +1,19 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
 # PAMPA MCP Usage Rule
 
 You have access to PAMPA, a code memory system that indexes and allows semantic search in projects. This rule is based on [RULE_FOR_PAMPA_MCP.md](mdc:RULE_FOR_PAMPA_MCP.md).
+
+## Important: Language Usage
+
+**ALWAYS use English for all PAMPA queries and searches.** The semantic search engine is optimized for English technical terms and provides significantly better results than other languages.
+
+Examples:
+- ✅ Good: "user authentication", "payment processing", "database connection"
+- ❌ Avoid: "autenticación de usuario", "procesamiento de pagos"
 
 ## Basic Instructions
 

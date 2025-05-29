@@ -41,5 +41,9 @@ build/
 # Archivos de test
 coverage/
 
+# Test implementations (contenido privado, NO commitear)
+test/test-implementations/*
+!test/test-implementations/.gitkeep
+
 # Archivos específicos de PAMPA que SÍ se deben commitear:
 # pampa.codemap.json - ¡IMPORTANTE: NO ignorar este archivo! 
