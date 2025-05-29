@@ -230,11 +230,11 @@ Template to find existing similar functions.
 
 ## 🤝 Contributing
 
-For guidelines on contributing to this project, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+For guidelines on contributing to this project, please see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## 📜 Code of Conduct
 
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in our project.
+Please read our [Code of Conduct](docs/CODE_OF_CONDUCT.md) before participating in our project.
 
 ## 📄 License
 

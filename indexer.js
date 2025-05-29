@@ -1,565 +1,67 @@
-import crypto from 'crypto';
-import fg from 'fast-glob';
-import fs from 'fs';
-import path from 'path';
-import sqlite3 from 'sqlite3';
-import Parser from 'tree-sitter';
-import LangGo from 'tree-sitter-go';
-import LangJava from 'tree-sitter-java';
-import LangJS from 'tree-sitter-javascript';
-import LangPHP from 'tree-sitter-php';
-import LangTSX from 'tree-sitter-typescript/bindings/node/tsx.js';
-import LangTS from 'tree-sitter-typescript/bindings/node/typescript.js';
-import { promisify } from 'util';
-import zlib from 'zlib';
+/**
+ * PAMPA Indexer - Presentation Layer
+ * 
+ * This module provides the user-facing interface for PAMPA core services.
+ * It handles logging, console output, and user feedback while delegating
+ * business logic to the service layer.
+ */
 
-const LANG_RULES = {
-    '.php': { lang: 'php', ts: LangPHP, nodeTypes: ['function_definition', 'method_declaration'] },
-    '.js': { lang: 'javascript', ts: LangJS, nodeTypes: ['function_declaration', 'method_definition', 'class_declaration'] },
-    '.jsx': { lang: 'tsx', ts: LangTSX, nodeTypes: ['function_declaration', 'class_declaration'] },
-    '.ts': { lang: 'typescript', ts: LangTS, nodeTypes: ['function_declaration', 'method_definition', 'class_declaration'] },
-    '.tsx': { lang: 'tsx', ts: LangTSX, nodeTypes: ['function_declaration', 'class_declaration'] },
-    '.go': { lang: 'go', ts: LangGo, nodeTypes: ['function_declaration', 'method_declaration'] },
-    '.java': { lang: 'java', ts: LangJava, nodeTypes: ['method_declaration', 'class_declaration'] }
-};
+import * as service from './service.js';
 
-const CHUNK_DIR = '.pampa/chunks';
-const CODEMAP = 'pampa.codemap.json';
-const DB_PATH = '.pampa/pampa.db';
-
-// ============================================================================
-// EMBEDDING PROVIDERS
-// ============================================================================
-
-class EmbeddingProvider {
-    async generateEmbedding(text) {
-        throw new Error('generateEmbedding must be implemented by subclass');
-    }
-
-    getDimensions() {
-        throw new Error('getDimensions must be implemented by subclass');
-    }
-
-    getName() {
-        throw new Error('getName must be implemented by subclass');
-    }
-}
-
-class OpenAIProvider extends EmbeddingProvider {
-    constructor() {
-        super();
-        // Dynamic import to avoid error if not installed
-        this.openai = null;
-        this.model = 'text-embedding-3-large';
-    }
-
-    async init() {
-        if (!this.openai) {
-            const { OpenAI } = await import('openai');
-            this.openai = new OpenAI();
-        }
-    }
-
-    async generateEmbedding(text) {
-        await this.init();
-        const { data } = await this.openai.embeddings.create({
-            model: this.model,
-            input: text.slice(0, 8192)
-        });
-        return data[0].embedding;
-    }
-
-    getDimensions() {
-        return 3072; // text-embedding-3-large
-    }
-
-    getName() {
-        return 'OpenAI';
-    }
-}
-
-class TransformersProvider extends EmbeddingProvider {
-    constructor() {
-        super();
-        this.pipeline = null;
-        this.model = 'Xenova/all-MiniLM-L6-v2';
-        this.initialized = false;
-    }
-
-    async init() {
-        if (!this.initialized && !this.pipeline) {
-            try {
-                const { pipeline } = await import('@xenova/transformers');
-                this.pipeline = await pipeline('feature-extraction', this.model);
-                this.initialized = true;
-            } catch (error) {
-                throw new Error('Transformers.js is not installed. Run: npm install @xenova/transformers');
-            }
-        }
-    }
-
-    async generateEmbedding(text) {
-        if (!this.initialized) {
-            await this.init();
-        }
-        const result = await this.pipeline(text.slice(0, 512), {
-            pooling: 'mean',
-            normalize: true
-        });
-        return Array.from(result.data);
-    }
-
-    getDimensions() {
-        return 384; // all-MiniLM-L6-v2
-    }
-
-    getName() {
-        return 'Transformers.js (Local)';
-    }
-}
-
-class OllamaProvider extends EmbeddingProvider {
-    constructor(model = 'nomic-embed-text') {
-        super();
-        this.model = model;
-        this.ollama = null;
-    }
-
-    async init() {
-        if (!this.ollama) {
-            try {
-                const ollama = await import('ollama');
-                this.ollama = ollama.default;
-            } catch (error) {
-                throw new Error('Ollama is not installed. Run: npm install ollama');
-            }
-        }
-    }
-
-    async generateEmbedding(text) {
-        await this.init();
-        const response = await this.ollama.embeddings({
-            model: this.model,
-            prompt: text.slice(0, 2048)
-        });
-        return response.embedding;
-    }
-
-    getDimensions() {
-        return 768; // nomic-embed-text (may vary by model)
-    }
-
-    getName() {
-        return `Ollama (${this.model})`;
-    }
-}
-
-class CohereProvider extends EmbeddingProvider {
-    constructor() {
-        super();
-        this.cohere = null;
-        this.model = 'embed-english-v3.0';
-    }
-
-    async init() {
-        if (!this.cohere) {
-            try {
-                const { CohereClient } = await import('cohere-ai');
-                this.cohere = new CohereClient({
-                    token: process.env.COHERE_API_KEY
-                });
-            } catch (error) {
-                throw new Error('Cohere is not installed. Run: npm install cohere-ai');
-            }
-        }
-    }
-
-    async generateEmbedding(text) {
-        await this.init();
-        const response = await this.cohere.embed({
-            texts: [text.slice(0, 4096)],
-            model: this.model,
-            inputType: 'search_document'
-        });
-        return response.embeddings[0];
-    }
-
-    getDimensions() {
-        return 1024; // embed-english-v3.0
-    }
-
-    getName() {
-        return 'Cohere';
-    }
-}
-
-// ============================================================================
-// FACTORY TO CREATE PROVIDERS
-// ============================================================================
-
-function createEmbeddingProvider(providerName = 'auto') {
-    switch (providerName.toLowerCase()) {
-        case 'openai':
-            return new OpenAIProvider();
-        case 'transformers':
-        case 'local':
-            return new TransformersProvider();
-        case 'ollama':
-            return new OllamaProvider();
-        case 'cohere':
-            return new CohereProvider();
-        case 'auto':
-        default:
-            // Auto-detect best available provider
-            if (process.env.OPENAI_API_KEY) {
-                return new OpenAIProvider();
-            } else if (process.env.COHERE_API_KEY) {
-                return new CohereProvider();
-            } else {
-                return new TransformersProvider();
-            }
-    }
-}
-
-// ============================================================================
-// FUNCIONES PRINCIPALES
-// ============================================================================
-
-// Inicializar base de datos SQLite
-async function initDatabase(dimensions) {
-    const dbDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
-    }
-
-    const db = new sqlite3.Database(DB_PATH);
-    const run = promisify(db.run.bind(db));
-
-    // Crear tabla para chunks de código
-    await run(`
-        CREATE TABLE IF NOT EXISTS code_chunks (
-            id TEXT PRIMARY KEY,
-            file_path TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            sha TEXT NOT NULL,
-            lang TEXT NOT NULL,
-            embedding BLOB,
-            embedding_provider TEXT,
-            embedding_dimensions INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Crear índice para búsquedas
-    await run(`CREATE INDEX IF NOT EXISTS idx_file_path ON code_chunks(file_path)`);
-    await run(`CREATE INDEX IF NOT EXISTS idx_symbol ON code_chunks(symbol)`);
-    await run(`CREATE INDEX IF NOT EXISTS idx_lang ON code_chunks(lang)`);
-    await run(`CREATE INDEX IF NOT EXISTS idx_provider ON code_chunks(embedding_provider)`);
-
-    // Create index for searches
-    await run(`
-        CREATE INDEX IF NOT EXISTS idx_lang_provider 
-        ON code_chunks(lang, embedding_provider, embedding_dimensions)
-    `);
-
-    db.close();
-    // Base de datos SQLite inicializada silenciosamente
-}
-
-// Function to calculate cosine similarity
-function cosineSimilarity(a, b) {
-    if (a.length !== b.length) return 0;
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-        dotProduct += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-    }
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
+// Re-export service functions with presentation layer
 export async function indexProject({ repoPath = '.', provider = 'auto' }) {
-    const repo = path.resolve(repoPath);
-    const pattern = Object.keys(LANG_RULES).map(ext => `**/*${ext}`);
-    const files = await fg(pattern, {
-        cwd: repo,
-        ignore: ['**/vendor/**', '**/node_modules/**', '**/.git/**', '**/storage/**', '**/dist/**', '**/build/**']
+    console.log('🚀 Starting project indexing...');
+    console.log(`🧠 Provider: ${provider}`);
+
+    const result = await service.indexProject({
+        repoPath,
+        provider,
+        onProgress: ({ type, file, symbol }) => {
+            // Silent progress - could add verbose mode here
+        }
     });
 
-    // Create embedding provider ONCE ONLY
-    const embeddingProvider = createEmbeddingProvider(provider);
+    if (result.success) {
+        console.log('✅ Indexing completed successfully');
 
-    // Initialize provider ONCE ONLY
-    if (embeddingProvider.init) {
-        await embeddingProvider.init();
-    }
-
-    // Initialize database
-    await initDatabase(embeddingProvider.getDimensions());
-
-    const codemap = fs.existsSync(path.join(repo, CODEMAP)) ?
-        JSON.parse(fs.readFileSync(path.join(repo, CODEMAP))) : {};
-
-    const parser = new Parser();
-    let processedChunks = 0;
-
-    for (const rel of files) {
-        const abs = path.join(repo, rel);
-        const ext = path.extname(rel).toLowerCase();
-        const rule = LANG_RULES[ext];
-
-        if (!rule) continue;
-
-        try {
-            parser.setLanguage(rule.ts);
-            const source = fs.readFileSync(abs, 'utf8');
-            const tree = parser.parse(source);
-
-            async function walk(node) {
-                if (rule.nodeTypes.includes(node.type)) {
-                    await yieldChunk(node);
-                }
-                for (let i = 0; i < node.childCount; i++) {
-                    await walk(node.child(i));
-                }
-            }
-
-            async function yieldChunk(node) {
-                // More robust function to extract symbol name
-                function extractSymbolName(node, source) {
-                    // Try different ways to get the name according to node type
-                    if (node.type === 'function_declaration' || node.type === 'function_definition') {
-                        // Look for first identifier after 'function'
-                        for (let i = 0; i < node.childCount; i++) {
-                            const child = node.child(i);
-                            if (child.type === 'identifier') {
-                                return source.slice(child.startIndex, child.endIndex);
-                            }
-                        }
-                    }
-
-                    if (node.type === 'method_declaration' || node.type === 'method_definition') {
-                        // Look for method identifier
-                        for (let i = 0; i < node.childCount; i++) {
-                            const child = node.child(i);
-                            if (child.type === 'identifier' || child.type === 'property_identifier') {
-                                return source.slice(child.startIndex, child.endIndex);
-                            }
-                        }
-                    }
-
-                    if (node.type === 'class_declaration') {
-                        // Look for class name
-                        for (let i = 0; i < node.childCount; i++) {
-                            const child = node.child(i);
-                            if (child.type === 'identifier' || child.type === 'type_identifier') {
-                                return source.slice(child.startIndex, child.endIndex);
-                            }
-                        }
-                    }
-
-                    // Fallback: use first identifier found
-                    for (let i = 0; i < node.childCount; i++) {
-                        const child = node.child(i);
-                        if (child.type === 'identifier') {
-                            return source.slice(child.startIndex, child.endIndex);
-                        }
-                    }
-
-                    // If we find nothing, use type + position
-                    return `${node.type}_${node.startIndex}`;
-                }
-
-                const symbol = extractSymbolName(node, source);
-                if (!symbol) return;
-
-                const code = source.slice(node.startIndex, node.endIndex);
-                const sha = crypto.createHash('sha1').update(code).digest('hex');
-                const chunkId = `${rel}:${symbol}:${sha.substring(0, 8)}`;
-
-                // Check if chunk already exists and hasn't changed
-                if (codemap[chunkId]?.sha === sha) {
-                    return; // No changes
-                }
-
-                await embedAndStore({ code, chunkId, sha, lang: rule.lang, rel, symbol });
-                processedChunks++;
-            }
-
-            async function embedAndStore({ code, chunkId, sha, lang, rel, symbol }) {
-                try {
-                    // Generate embedding using already initialized instance
-                    const embedding = await embeddingProvider.generateEmbedding(code);
-
-                    // Save to database
-                    const db = new sqlite3.Database(DB_PATH);
-                    const run = promisify(db.run.bind(db));
-
-                    await run(`
-                        INSERT OR REPLACE INTO code_chunks 
-                        (id, file_path, symbol, sha, lang, embedding, embedding_provider, embedding_dimensions, updated_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    `, [
-                        chunkId,
-                        rel,
-                        symbol,
-                        sha,
-                        lang,
-                        Buffer.from(JSON.stringify(embedding)),
-                        embeddingProvider.getName(),
-                        embeddingProvider.getDimensions()
-                    ]);
-
-                    db.close();
-
-                    // Save compressed chunk
-                    fs.mkdirSync(path.join(repo, CHUNK_DIR), { recursive: true });
-                    fs.writeFileSync(path.join(repo, CHUNK_DIR, `${sha}.gz`), zlib.gzipSync(code));
-
-                    // Update codemap
-                    codemap[chunkId] = {
-                        file: rel,
-                        symbol,
-                        sha,
-                        lang,
-                        provider: embeddingProvider.getName(),
-                        dimensions: embeddingProvider.getDimensions()
-                    };
-
-                    // Chunk indexed silently
-                } catch (error) {
-                    console.error(`❌ Error indexing ${chunkId}:`, error.message);
-                }
-            }
-
-            await walk(tree.rootNode);
-        } catch (error) {
-            console.error(`❌ Error processing ${rel}:`, error.message);
+        // Log errors if any
+        if (result.errors.length > 0) {
+            console.log(`⚠️  ${result.errors.length} errors occurred during indexing:`);
+            result.errors.forEach(error => {
+                console.error(`❌ ${error.type}: ${error.error}`);
+            });
         }
+    } else {
+        console.error('❌ Indexing failed');
+        throw new Error(result.message || 'Unknown indexing error');
     }
 
-    // Save updated codemap
-    fs.writeFileSync(path.join(repo, CODEMAP), JSON.stringify(codemap, null, 2));
-    // Indexing completed silently
-    // Return statistics if needed
-    return {
-        processedChunks,
-        totalChunks: Object.keys(codemap).length,
-        provider: embeddingProvider.getName()
-    };
+    return result;
 }
 
-// Function to search similar code
 export async function searchCode(query, limit = 10, provider = 'auto') {
-    if (!query.trim()) {
-        return await getOverview(limit);
-    }
+    const result = await service.searchCode(query, limit, provider);
 
-    try {
-        // Create provider for query
-        const embeddingProvider = createEmbeddingProvider(provider);
-        const queryEmbedding = await embeddingProvider.generateEmbedding(query);
-
-        const db = new sqlite3.Database(DB_PATH);
-        const all = promisify(db.all.bind(db));
-
-        // Search chunks from same provider and dimensions
-        const chunks = await all(`
-            SELECT id, file_path, symbol, sha, lang, embedding, embedding_provider, embedding_dimensions
-            FROM code_chunks 
-            WHERE embedding_provider = ? AND embedding_dimensions = ?
-            ORDER BY created_at DESC
-        `, [embeddingProvider.getName(), embeddingProvider.getDimensions()]);
-
-        db.close();
-
-        if (chunks.length === 0) {
-            console.log(`⚠️  No indexed chunks found with ${embeddingProvider.getName()}`);
-            console.log(`💡 Run: npx pampa index --provider ${provider}`);
-            return [];
+    if (!result.success) {
+        if (result.error === 'no_chunks_found') {
+            console.log(`⚠️  ${result.message}`);
+            console.log(`💡 ${result.suggestion}`);
+        } else {
+            console.error('Search error:', result.message);
         }
-
-        // Calculate similarities
-        const results = chunks.map(chunk => {
-            const embedding = JSON.parse(chunk.embedding.toString());
-            const similarity = cosineSimilarity(queryEmbedding, embedding);
-
-            return {
-                id: chunk.id,
-                file_path: chunk.file_path,
-                symbol: chunk.symbol,
-                sha: chunk.sha,
-                lang: chunk.lang,
-                score: similarity
-            };
-        });
-
-        // Sort by similarity and limit results
-        return results
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(result => ({
-                type: 'code',
-                lang: result.lang,
-                path: result.file_path,
-                sha: result.sha,
-                data: null, // Loaded on demand
-                meta: {
-                    id: result.id,
-                    symbol: result.symbol,
-                    score: result.score.toFixed(4)
-                }
-            }));
-    } catch (error) {
-        console.error('Search error:', error);
         return [];
     }
+
+    // Convert to legacy format for backward compatibility
+    return result.results;
 }
 
-// Function to get project overview
-async function getOverview(limit = 20) {
-    try {
-        const db = new sqlite3.Database(DB_PATH);
-        const all = promisify(db.all.bind(db));
-
-        const chunks = await all(`
-            SELECT id, file_path, symbol, sha, lang 
-            FROM code_chunks 
-            ORDER BY file_path, symbol 
-            LIMIT ?
-        `, [limit]);
-
-        db.close();
-
-        return chunks.map(chunk => ({
-            type: 'code',
-            lang: chunk.lang,
-            path: chunk.file_path,
-            sha: chunk.sha,
-            data: null,
-            meta: {
-                id: chunk.id,
-                symbol: chunk.symbol,
-                score: 1.0
-            }
-        }));
-    } catch (error) {
-        console.error('Error getting overview:', error);
-        return [];
-    }
-}
-
-// Function to get chunk content
 export async function getChunk(sha) {
-    const gzPath = path.join(CHUNK_DIR, `${sha}.gz`);
-    if (!fs.existsSync(gzPath)) {
-        throw new Error(`Chunk not found: ${sha}`);
+    const result = await service.getChunk(sha);
+
+    if (!result.success) {
+        throw new Error(result.message);
     }
-    return zlib.gunzipSync(fs.readFileSync(gzPath)).toString('utf8');
+
+    return result.content;
 }

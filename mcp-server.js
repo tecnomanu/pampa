@@ -5,7 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
-import { getChunk, indexProject, searchCode } from './indexer.js';
+import * as service from './service.js';
 
 // ============================================================================
 // ERROR LOGGING SYSTEM
@@ -197,36 +197,47 @@ server.tool(
             }
 
             const results = await safeAsyncCall(
-                () => searchCode(cleanQuery, limit, cleanProvider),
+                () => service.searchCode(cleanQuery, limit, cleanProvider),
                 { ...context, query: cleanQuery, provider: cleanProvider, step: 'searchCode_call' }
             );
 
-            if (results.length === 0) {
-                return {
-                    content: [{
-                        type: "text",
-                        text: `No results found for: "${cleanQuery}"\n\n` +
-                            `System status:\n` +
-                            `- Provider used: ${cleanProvider}\n` +
-                            `- Database: ${fs.existsSync('.pampa/pampa.db') ? 'Available' : 'Not found'}\n` +
-                            `- Codemap: ${fs.existsSync('pampa.codemap.json') ? 'Available' : 'Not found'}\n\n` +
-                            `Suggestions:\n` +
-                            `- Verify project is indexed (use index_project)\n` +
-                            `- Try more general terms\n` +
-                            `- Check that code files exist in the project`
-                    }]
-                };
+            if (!results.success) {
+                if (results.error === 'no_chunks_found') {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: `No results found.\n\n` +
+                                `Message: ${results.message}\n` +
+                                `Suggestion: ${results.suggestion}`
+                        }],
+                        isError: false
+                    };
+                } else {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: `Search error: ${results.message}`
+                        }],
+                        isError: true
+                    };
+                }
             }
 
-            const resultText = results.map(result =>
-                `File: ${result.path}\nFunction: ${result.meta.symbol} (${result.lang})\nSimilarity: ${result.meta.score}\nSHA: ${result.sha}\n`
-            ).join('\n');
+            const resultText = results.results.map((result, index) => {
+                return `${index + 1}. ${result.path}\n` +
+                    `   Symbol: ${result.meta.symbol} (${result.lang})\n` +
+                    `   Similarity: ${result.meta.score}\n` +
+                    `   SHA: ${result.sha}`;
+            }).join('\n\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `Found ${results.length} results for: "${cleanQuery}"\n\n${resultText}\nUse get_code_chunk with the SHA to see the complete code.`
-                }]
+                    text: `Found ${results.results.length} results for: "${cleanQuery}"\n` +
+                        `Provider: ${results.provider}\n\n` +
+                        resultText
+                }],
+                isError: false
             };
         } catch (error) {
             await errorLogger.logAsync(error, { ...context, step: 'search_code_tool' });
@@ -303,16 +314,27 @@ server.tool(
                 };
             }
 
-            const code = await safeAsyncCall(
-                () => getChunk(cleanSha),
+            const result = await safeAsyncCall(
+                () => service.getChunk(cleanSha),
                 { ...context, sha: cleanSha, step: 'getChunk_call' }
             );
+
+            if (!result.success) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Error: ${result.message}`
+                    }],
+                    isError: true
+                };
+            }
 
             return {
                 content: [{
                     type: "text",
-                    text: `\`\`\`\n${code}\n\`\`\``
-                }]
+                    text: result.content
+                }],
+                isError: false
             };
         } catch (error) {
             await errorLogger.logAsync(error, { ...context, step: 'get_code_chunk_tool' });
@@ -355,22 +377,43 @@ server.tool(
                 throw new Error(`Directory ${cleanPath} does not exist`);
             }
 
-            await safeAsyncCall(
-                () => indexProject({ repoPath: cleanPath, provider: cleanProvider }),
+            const result = await safeAsyncCall(
+                () => service.indexProject({ repoPath: cleanPath, provider: cleanProvider }),
                 { ...context, projectPath: cleanPath, provider: cleanProvider, step: 'indexProject_call' }
             );
+
+            if (!result.success) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Indexing failed: ${result.message || 'Unknown error'}`
+                    }],
+                    isError: true
+                };
+            }
+
+            let responseText = `Project indexed successfully!\n\n` +
+                `Statistics:\n` +
+                `- Processed chunks: ${result.processedChunks}\n` +
+                `- Total chunks: ${result.totalChunks}\n` +
+                `- Provider: ${result.provider}`;
+
+            if (result.errors && result.errors.length > 0) {
+                responseText += `\n\nWarnings (${result.errors.length} errors occurred):\n`;
+                result.errors.slice(0, 5).forEach(error => {
+                    responseText += `- ${error.type}: ${error.error}\n`;
+                });
+                if (result.errors.length > 5) {
+                    responseText += `... and ${result.errors.length - 5} more errors\n`;
+                }
+            }
 
             return {
                 content: [{
                     type: "text",
-                    text: `Project indexed successfully at: ${cleanPath}\n` +
-                        `Provider: ${cleanProvider}\n\n` +
-                        `Files created:\n` +
-                        `- ${fs.existsSync(path.join(cleanPath, 'pampa.codemap.json')) ? 'OK' : 'ERROR'} pampa.codemap.json\n` +
-                        `- ${fs.existsSync(path.join(cleanPath, '.pampa/pampa.db')) ? 'OK' : 'ERROR'} .pampa/pampa.db\n` +
-                        `- ${fs.existsSync(path.join(cleanPath, '.pampa/chunks')) ? 'OK' : 'ERROR'} .pampa/chunks/\n\n` +
-                        `You can now use search_code to find functions and classes.`
-                }]
+                    text: responseText
+                }],
+                isError: false
             };
         } catch (error) {
             await errorLogger.logAsync(error, { ...context, step: 'index_project_tool' });
@@ -408,60 +451,37 @@ server.tool(
         const context = { projectPath, timestamp: new Date().toISOString() };
 
         try {
-            // Clean parameter
-            const cleanPath = projectPath ? projectPath.trim() : '.';
-            const codemapPath = path.join(cleanPath, 'pampa.codemap.json');
+            const overviewResult = await service.getOverview(20);
 
-            if (!fs.existsSync(codemapPath)) {
+            if (!overviewResult.success) {
                 return {
                     content: [{
                         type: "text",
-                        text: `Project not indexed at: ${cleanPath}\n\n` +
-                            `Use index_project to index the project first.\n\n` +
-                            `Directory status:\n` +
-                            `- Directory exists: ${fs.existsSync(cleanPath) ? 'YES' : 'NO'}\n` +
-                            `- pampa.codemap.json: NOT found\n` +
-                            `- .pampa/: ${fs.existsSync(path.join(cleanPath, '.pampa')) ? 'YES' : 'NO'}`
+                        text: `Error getting overview: ${overviewResult.message}`
+                    }],
+                    isError: true
+                };
+            }
+
+            const results = overviewResult.results;
+
+            if (results.length === 0) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Project not indexed or empty. Use index_project tool first."
                     }]
                 };
             }
 
-            const codemap = await safeAsyncCall(
-                () => JSON.parse(fs.readFileSync(codemapPath, 'utf8')),
-                { ...context, cleanPath, step: 'read_codemap' }
-            );
-
-            const chunks = Object.values(codemap);
-
-            // Statistics by language
-            const langStats = chunks.reduce((acc, chunk) => {
-                acc[chunk.lang] = (acc[chunk.lang] || 0) + 1;
-                return acc;
-            }, {});
-
-            // Statistics by file
-            const fileStats = chunks.reduce((acc, chunk) => {
-                acc[chunk.file] = (acc[chunk.file] || 0) + 1;
-                return acc;
-            }, {});
-
-            const topFiles = Object.entries(fileStats)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10)
-                .map(([file, count]) => `  ${file}: ${count} functions`)
-                .join('\n');
-
-            const langStatsText = Object.entries(langStats)
-                .map(([lang, count]) => `  ${lang}: ${count} functions`)
-                .join('\n');
+            const overview = results.map(result =>
+                `- ${result.path} :: ${result.meta.symbol} (${result.lang})`
+            ).join('\n');
 
             return {
                 content: [{
                     type: "text",
-                    text: `Project statistics: ${cleanPath}\n\n` +
-                        `Total indexed functions: ${chunks.length}\n\n` +
-                        `By language:\n${langStatsText}\n\n` +
-                        `Files with most functions:\n${topFiles}`
+                    text: `Project overview (${results.length} main functions):\n\n${overview}`
                 }]
             };
         } catch (error) {
@@ -534,35 +554,20 @@ server.resource(
     "pampa://overview",
     async (uri) => {
         try {
-            const results = await searchCode("", 20); // Get overview
+            const results = await service.getOverview(20);
 
-            if (results.length === 0) {
-                return {
-                    contents: [{
-                        uri: uri.href,
-                        text: "Project not indexed or empty. Use index_project tool first."
-                    }]
-                };
+            if (!results.success || results.results.length === 0) {
+                return "Project not indexed or empty. Use index_project first.";
             }
 
-            const overview = results.map(result =>
-                `- ${result.path} :: ${result.meta.symbol} (${result.lang})`
+            const overview = results.results.map(result =>
+                `${result.path} :: ${result.meta.symbol} (${result.lang})`
             ).join('\n');
 
-            return {
-                contents: [{
-                    uri: uri.href,
-                    text: `Project overview (${results.length} main functions):\n\n${overview}`
-                }]
-            };
+            return `Project overview (${results.results.length} main functions):\n\n${overview}`;
         } catch (error) {
-            await errorLogger.logAsync(error, { step: 'overview_resource', uri: uri.href });
-            return {
-                contents: [{
-                    uri: uri.href,
-                    text: `Error generating overview: ${error.message}\n\nError logged to pampa_error.log`
-                }]
-            };
+            errorLogger.log(error, { resource: 'pampa://overview' });
+            return `Error getting overview: ${error.message}`;
         }
     }
 );
