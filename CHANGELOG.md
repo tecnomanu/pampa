@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/tecnomanu/pampa/compare/v1.8.0...v1.8.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* **cli:** 🔧 agregar soporte de [path] al comando search y usar searchCode desde service.js ([6d00ff1](https://github.com/tecnomanu/pampa/commit/6d00ff1ac758eb2699940b8b3249f421ddd0a257))
+
 # [1.8.0](https://github.com/tecnomanu/pampa/compare/v1.7.0...v1.8.0) (2025-05-29)
 
 
