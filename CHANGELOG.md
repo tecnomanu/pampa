@@ -1,3 +1,11 @@
+## [1.6.1](https://github.com/tecnomanu/pampa/compare/v1.6.0...v1.6.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* **core:** 🐛 resolve critical SQLITE_CANTOPEN error - Add database existence check before SQLite operations - Improve error messages with clear user guidance - Add comprehensive tests for database error handling - Prevent server crashes when database not found ([ff391e7](https://github.com/tecnomanu/pampa/commit/ff391e7f3fd60c1e8fb8d2e794c7356fdfd5dba7))
+* **tests:** 🧪 improve database error test for CI/CD compatibility - Add graceful handling of sqlite3 bindings errors - Skip tests when native dependencies unavailable - Maintain full functionality in development environments - Prevent CI/CD failures due to missing native modules ([7bb64f6](https://github.com/tecnomanu/pampa/commit/7bb64f6e81cc9c70605eaed1814f54057360cce8))
+
 # [1.6.1](https://github.com/tecnomanu/pampa/compare/v1.6.0...v1.6.1) (2025-01-29)
 
 ### Bug Fixes
