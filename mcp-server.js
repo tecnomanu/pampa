@@ -4,8 +4,15 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import * as service from './service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
 // ============================================================================
 // ERROR LOGGING SYSTEM
@@ -110,7 +117,7 @@ async function safeAsyncCall(asyncFn, context = {}) {
 // Create MCP server
 const server = new McpServer({
     name: "pampa-code-memory",
-    version: "0.4.1"
+    version: packageJson.version
 });
 
 // ============================================================================
@@ -639,11 +646,9 @@ server.prompt(
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
+    console.log({ "start": "PAMPA MCP Server started and ready for connections" });
 
-    // Server is now running and waiting for MCP connections
-    // Only stderr logging for diagnostics, not stdout
     if (process.env.PAMPA_DEBUG === 'true') {
-        console.error("PAMPA MCP Server started and ready for connections");
         console.error("Error logging system activated: pampa_error.log");
     }
 }
