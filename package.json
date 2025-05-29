@@ -1,6 +1,6 @@
 {
 	"name": "pampa",
-	"version": "1.2.1",
+	"version": "1.2.3",
 	"description": "PAMPA – Protocol for Augmented Memory of Project Artifacts (MCP compatible)",
 	"author": "Manuel Bruña",
 	"type": "module",
@@ -11,7 +11,7 @@
 	},
 	"bin": {
 		"pampa": "cli.js",
-		"pampa-mcp": "mcp-serve.js"
+		"pampa-mcp": "mcp-server.js"
 	},
 	"files": [
 		"cli.js",
