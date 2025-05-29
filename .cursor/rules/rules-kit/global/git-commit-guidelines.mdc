@@ -1,6 +1,4 @@
 ---
-projectPath: ./
-cursorPath: .
 description: Conventions for Git commit messages
 globs: **/*
 alwaysApply: true
@@ -11,15 +9,62 @@ Adopt **Conventional Commits** with emojis for quick context:
 
 | Type     | Emoji | Example                                 |
 | -------- | ----- | --------------------------------------- |
-| feat     | ✨    | `✨ feat(api): add user authentication` |
-| fix      | 🐛    | `🐛 fix(payment): handle timeout error` |
-| docs     | 📝    | `📝 docs(readme): clarify setup`        |
-| refactor | ♻️    | `♻️ refactor(core): extract helper`     |
-| test     | ✅    | `✅ test(utils): edge cases for parser` |
-| chore    | 🔧    | `🔧 chore(ci): bump node version`       |
+| feat     | ✨    | `feat(api): ✨ add user authentication` |
+| fix      | 🐛    | `fix(payment): 🐛 handle timeout error` |
+| docs     | 📝    | `docs(readme): 📝 clarify setup`        |
+| refactor | ♻️    | `refactor(core): ♻️ extract helper`     |
+| test     | ✅    | `test(utils): ✅ edge cases for parser` |
+| chore    | 🔧    | `chore(ci): 🔧 bump node version`       |
 
 **Versioning**
 
 -   **MAJOR**: breaking changes (v2.0.0)
 -   **MINOR**: new features, backward‑compatible (v1.1.0)
 -   **PATCH**: bug fixes, backward‑compatible (v1.0.1)
+
+## Git Identity Configuration
+
+### Per Repository (Recommended)
+Configure different name/email for specific projects:
+
+```bash
+# Set identity for current repository
+git config user.name "Project Name"
+git config user.email "project@email.com"
+
+# Verify configuration
+git config user.name
+git config user.email
+```
+
+### Per Commit
+Override identity for a single commit:
+
+```bash
+git commit --author="Author Name <author@email.com>" -m "commit message"
+```
+
+### Global Configuration
+Set default identity for all repositories:
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your@email.com"
+```
+
+### Conditional Configuration
+Auto-switch identity based on directory (add to `~/.gitconfig`):
+
+```ini
+[includeIf "gitdir:~/work/"]
+    path = ~/.gitconfig-work
+
+[includeIf "gitdir:~/personal/"]
+    path = ~/.gitconfig-personal
+```
+
+Create separate config files:
+- `~/.gitconfig-work`: Work identity
+- `~/.gitconfig-personal`: Personal identity
+
+**Note**: GitHub avatar is determined by the email address associated with your GitHub account.
