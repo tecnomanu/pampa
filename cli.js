@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from 'child_process';
 import { Command } from 'commander';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { indexProject, searchCode } from './indexer.js';
@@ -8,11 +9,14 @@ import { indexProject, searchCode } from './indexer.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+
 const program = new Command();
 program
     .name('pampa')
     .description('PAMPA - Protocol for Augmented Memory of Project Artifacts (MCP)')
-    .version('0.4.0');
+    .version(packageJson.version);
 
 program
     .command('index [path]')
