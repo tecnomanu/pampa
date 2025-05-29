@@ -45,7 +45,7 @@ PAMPA resuelve esto convirtiendo tu repositorio en un **grafo de memoria de cód
 
 Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, obtener y mantenerse sincronizado – sin escanear todo el árbol.
 
-## 📑 Índice
+## 📚 Índice
 
 -   [🚀 Instalación como MCP (Recomendado)](#-instalación-como-mcp-recomendado)
 -   [💻 Uso Directo con CLI](#-uso-directo-con-cli)
@@ -73,6 +73,8 @@ Agrega a tu configuración de Claude Desktop (`~/Library/Application Support/Cla
 	}
 }
 ```
+
+**Opcional**: Agrega `"--debug"` a args para logging detallado: `["-y", "pampa", "mcp", "--debug"]`
 
 #### Cursor
 

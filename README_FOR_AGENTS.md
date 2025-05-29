@@ -298,6 +298,21 @@ graph TD
 -   **MCP rule file**: [RULE_FOR_PAMPA_MCP.md](RULE_FOR_PAMPA_MCP.md)
 -   **Project repository**: https://github.com/tecnomanu/pampa
 
+## 🚨 Troubleshooting for AI Agents
+
+### If PAMPA tools are not available:
+
+1. **Check MCP configuration**: Ensure your human configured the MCP server correctly
+2. **Verify installation**: Ask them to run `npx pampa --version`
+3. **Enable debug mode**: Add `--debug` to MCP args for detailed logs
+4. **Check permissions**: Ensure write access to project directory
+
+### If indexing fails:
+
+1. **Check embedding provider**: Transformers.js (free) vs OpenAI (requires API key)
+2. **Verify project structure**: Must be a valid code project with supported files
+3. **Check disk space**: Indexing creates `.pampa/` directory with database
+
 ---
 
 🤖 **Remember**: PAMPA is your project memory. Use it continuously to avoid duplicating work and to understand existing codebase architecture. It's like having perfect memory of every function ever written in the project!
