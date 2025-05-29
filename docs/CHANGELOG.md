@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/tecnomanu/pampa/compare/v1.0.1...v1.1.0) (2025-05-29)
+
+
+### Features
+
+* 🌍 convert project to english with bilingual README ([5141fd9](https://github.com/tecnomanu/pampa/commit/5141fd932bc9d53c95e704055d6c1d62cd3e0a90))
+
 ## [1.0.1](https://github.com/tecnomanu/pampa/compare/v1.0.0...v1.0.1) (2025-05-28)
 
 
