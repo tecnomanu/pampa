@@ -776,16 +776,19 @@ server.tool(
             }
 
             const operationText = isFirstTime ? 'indexed' : 'updated';
-            let responseText = `🔄 Project ${operationText} successfully!\n\n` +
-                `📊 Statistics:\n` +
-                `- Processed chunks: ${result.processedChunks}\n` +
-                `- Total chunks: ${result.totalChunks}\n` +
-                `- Provider: ${result.provider}\n\n` +
-                `📁 Database location: ${cleanPath}/.pampa/pampa.db\n\n` +
-                `✅ Your AI agent now has access to the latest code changes!\n\n` +
-                `💡 Next steps:\n` +
-                `- Use search_code to find functions\n` +
-                `- Run update_project again after making code changes`;
+            let responseText;
+
+            if (result.processedChunks === 0) {
+                responseText = `✅ Project update completed successfully - no changes found or no new functions detected.\n\n` +
+                    `📁 Database: ${cleanPath}/.pampa/pampa.db`;
+            } else {
+                responseText = `🔄 Project ${operationText} successfully!\n\n` +
+                    `📊 Statistics:\n` +
+                    `- Processed chunks: ${result.processedChunks}\n` +
+                    `- Total chunks: ${result.totalChunks}\n` +
+                    `- Provider: ${result.provider}\n\n` +
+                    `📁 Database: ${cleanPath}/.pampa/pampa.db`;
+            }
 
             if (result.errors && result.errors.length > 0) {
                 responseText += `\n\n⚠️ Warnings (${result.errors.length} errors occurred):\n`;
