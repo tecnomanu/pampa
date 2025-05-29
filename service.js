@@ -1047,6 +1047,11 @@ export async function recordIntention(originalQuery, targetSha, confidence = 1.0
     const { dbPath } = getPaths();
 
     try {
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return { success: false, error: 'database_not_found' };
+        }
+
         const normalizedQuery = normalizeQuery(originalQuery);
 
         const db = new sqlite3.Database(dbPath);
@@ -1092,6 +1097,11 @@ export async function searchByIntention(query, workingPath = '.') {
     const { dbPath } = getPaths();
 
     try {
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return { success: false, directMatch: false, error: 'database_not_found' };
+        }
+
         const normalizedQuery = normalizeQuery(query);
 
         const db = new sqlite3.Database(dbPath);
@@ -1136,6 +1146,11 @@ export async function recordQueryPattern(query, workingPath = '.') {
     const { dbPath } = getPaths();
 
     try {
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return { success: false, error: 'database_not_found' };
+        }
+
         // Extract pattern from query (remove specific names/values)
         const pattern = query
             .toLowerCase()
@@ -1180,6 +1195,15 @@ export async function getQueryAnalytics(workingPath = '.') {
     const { dbPath } = getPaths();
 
     try {
+        // Check if database exists before trying to open it
+        if (!fs.existsSync(dbPath)) {
+            return {
+                success: false,
+                error: 'database_not_found',
+                message: `Database not found at ${dbPath}. Project needs to be indexed first.`
+            };
+        }
+
         const db = new sqlite3.Database(dbPath);
         const all = promisify(db.all.bind(db));
 
