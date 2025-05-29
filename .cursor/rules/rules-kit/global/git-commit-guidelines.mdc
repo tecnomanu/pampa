@@ -22,6 +22,37 @@ Adopt **Conventional Commits** with emojis for quick context:
 -   **MINOR**: new features, backward‑compatible (v1.1.0)
 -   **PATCH**: bug fixes, backward‑compatible (v1.0.1)
 
+## Author Identity Rules
+
+Para diferenciar claramente el origen de cada commit, **SIEMPRE** usar `--author` según el contexto:
+
+### Human Developer Commits
+Commits realizados directamente por desarrolladores humanos:
+```bash
+# Usar identidad normal del desarrollador (sin --author)
+git commit -m "feat(auth): ✨ implement OAuth login"
+```
+
+### AI Assistant Commits  
+Commits realizados por asistentes de IA (Claude, ChatGPT, etc.):
+```bash
+# OBLIGATORIO usar --author con identificación AI
+git commit --author="Claude AI <claude.ai@assistant.local>" -m "feat(api): ✨ add user validation"
+git commit --author="ChatGPT AI <chatgpt.ai@assistant.local>" -m "fix(auth): 🐛 handle token expiry"
+```
+
+### Automated System Commits
+Commits automáticos (semantic-release, bots, CI/CD):
+```bash
+# Estos sistemas ya configuran su propio author automáticamente
+# No requiere acción manual
+```
+
+### Important Notes
+- **Avatar Display**: El avatar se determina por el email. Emails no asociados a cuentas GitHub mostrarán avatar por defecto
+- **Consistency**: Mantener consistencia en el formato de emails AI: `<ai-name>.ai@assistant.local`
+- **Transparency**: Esta práctica mejora la transparencia y trazabilidad del desarrollo colaborativo
+
 ## Git Identity Configuration
 
 ### Per Repository (Recommended)
