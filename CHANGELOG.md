@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/tecnomanu/pampa/compare/v1.5.1...v1.6.0) (2025-05-29)
+
+
+### Features
+
+* agregar debug mode y troubleshooting para agentes IA - Agrega información opcional sobre --debug en configuración MCP - Incluye sección de troubleshooting en README_FOR_AGENTS.md - Mejora emoji de índice/table of contents (📚) - Facilita resolución de problemas para agentes IA - Guías específicas para problemas de MCP y indexado ([8c00b6e](https://github.com/tecnomanu/pampa/commit/8c00b6ece1b2fd741bc70d155a621e7926b14013))
+
 ## [1.5.1](https://github.com/tecnomanu/pampa/compare/v1.5.0...v1.5.1) (2025-05-29)
 
 
