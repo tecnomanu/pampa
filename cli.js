@@ -35,6 +35,24 @@ program
     });
 
 program
+    .command('update [path]')
+    .description('Update index by re-scanning all files (recommended after code changes)')
+    .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
+    .action(async (projectPath = '.', options) => {
+        console.log('🔄 Updating project index...');
+        console.log(`Provider: ${options.provider}`);
+        console.log('ℹ️  This will re-scan all files and update the database');
+        try {
+            await indexProject({ repoPath: projectPath, provider: options.provider });
+            console.log('✅ Index updated successfully');
+            console.log('💡 Your AI agents now have access to the latest code changes');
+        } catch (error) {
+            console.error('❌ ERROR during update:', error.message);
+            process.exit(1);
+        }
+    });
+
+program
     .command('search <query>')
     .option('-k, --limit <num>', 'maximum number of results', '10')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')

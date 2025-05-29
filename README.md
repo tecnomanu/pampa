@@ -25,6 +25,82 @@ PAMPA solves this by turning your repository into a **code memory graph**:
 
 Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and stay synchronized – without scanning the entire tree.
 
+## 🤖 For AI Agents: How to Use PAMPA Effectively
+
+**If you are an AI agent with access to PAMPA tools, here's your workflow:**
+
+### 🚀 Essential First Steps (Do This ALWAYS)
+
+```markdown
+1. **Check if project is indexed:**
+    - Use `get_project_stats` to see if the project has a PAMPA database
+    - If no database exists, use `index_project` to create it
+2. **Update before starting work:**
+
+    - ALWAYS run `update_project` at the beginning of sessions
+    - Run `update_project` after any code changes you make
+    - This ensures you have access to the latest functions
+
+3. **Search before creating:**
+    - Before writing any function, use `search_code` to check if it already exists
+    - Search with semantic queries like "user authentication", "validate email", "calculate total"
+    - Use `get_code_chunk` to examine existing implementations
+```
+
+### 🔍 Smart Search Strategies
+
+```markdown
+-   **Be semantic:** Search "authentication logic" not "login()"
+-   **Use context:** "error handling for API calls" not just "error"
+-   **Check variations:** "create user", "add user", "register user"
+-   **Explore related:** After finding one function, search for related concepts
+```
+
+### ⚡ Suggested Workflow
+
+```markdown
+AT START OF EVERY CONVERSATION:
+
+1. "Let me check what's already implemented in this project"
+2. Use `get_project_stats` to understand the project structure
+3. Use `update_project` to ensure the database is current
+4. Use `search_code` to find relevant existing functions
+
+BEFORE CREATING ANY FUNCTION:
+
+1. Search for existing implementations
+2. Check related functions with semantic queries
+3. Only create new functions if none exist or don't fit the requirements
+
+AFTER MAKING CHANGES:
+
+1. Run `update_project` to update the knowledge base
+2. This ensures future searches include your new code
+```
+
+### 🎯 Sample Prompts for Common Tasks
+
+```markdown
+UNDERSTANDING A PROJECT:
+
+-   "Let me explore this codebase structure" → `get_project_stats`
+-   "Show me authentication-related functions" → `search_code("authentication")`
+-   "Find database connection logic" → `search_code("database connection")`
+
+BEFORE CODING:
+
+-   "Does this project have user validation?" → `search_code("user validation")`
+-   "How is error handling implemented?" → `search_code("error handling")`
+-   "Are there existing API endpoints?" → `search_code("API endpoint")`
+
+AFTER CODING:
+
+-   "Update the project index with my changes" → `update_project`
+-   "Verify my new function was indexed" → `search_code("my new function name")`
+```
+
+**Remember:** PAMPA is your project memory. Use it continuously to avoid duplicating work and to understand the existing codebase architecture.
+
 ## 🏗️ Architecture
 
 ```
@@ -136,6 +212,7 @@ PAMPA supports multiple providers for generating code embeddings:
 | Command                                  | Purpose                                            |
 | ---------------------------------------- | -------------------------------------------------- |
 | `npx pampa index [path] [--provider X]`  | Scan project, update SQLite and pampa.codemap.json |
+| `npx pampa update [path] [--provider X]` | Update index after code changes (recommended)      |
 | `npx pampa mcp`                          | Start MCP server (stdio)                           |
 | `npx pampa search <query> [-k N] [-p X]` | Fast local vector search (debug)                   |
 | `npx pampa info`                         | Show indexed project statistics                    |
@@ -197,6 +274,29 @@ Index a project from the agent.
     -   `{path}/pampa.codemap.json` (lightweight index for version control)
 -   **Effect**: Updates database and codemap
 
+### `update_project`
+
+**🔄 CRITICAL: Use this tool frequently to keep your AI memory current!**
+
+Update project index after code changes (recommended workflow tool).
+
+-   **Parameters**:
+    -   `path` (string, optional) - **PROJECT ROOT** directory path to update (same as used in index_project)
+    -   `provider` (string, optional) - Embedding provider (default: "auto")
+-   **Updates**:
+    -   Re-scans all files for changes
+    -   Updates embeddings for modified functions
+    -   Removes deleted functions from database
+    -   Adds new functions to database
+-   **When to use**:
+    -   ✅ At the start of development sessions
+    -   ✅ After creating new functions
+    -   ✅ After modifying existing functions
+    -   ✅ After deleting functions
+    -   ✅ Before major code analysis tasks
+    -   ✅ After refactoring code
+-   **Effect**: Keeps your AI agent's code memory synchronized with current state
+
 ### `get_project_stats`
 
 Get indexed project statistics.
@@ -229,78 +329,4 @@ npx pampa mcp --debug
 
 ### Debug Files Created
 
-When debug mode is enabled, PAMPA creates log files in the project directory specified by the `path` parameter:
-
--   `{path}/pampa_debug.log` - Detailed operation logs
--   `{path}/pampa_error.log` - Error logs only
-
-### What Gets Logged
-
--   Tool calls and parameters
--   Working directory changes
--   Database operations
--   Search results and performance
--   Error details with context
-
-## 📊 Available MCP Resources
-
-### `pampa://codemap`
-
-Access to the complete project code map.
-
-### `pampa://overview`
-
-Summary of the project's main functions.
-
-## 🎯 Available MCP Prompts
-
-### `analyze_code`
-
-Template to analyze found code with specific focus.
-
-### `find_similar_functions`
-
-Template to find existing similar functions.
-
-## 🔍 How Retrieval Works
-
--   **Vector search** – Cosine similarity on `text-embedding-3-large` (3,072-D)
--   **Summary fallback** – If an agent sends an empty query, PAMPA returns top-level summaries so the agent understands the territory
--   **Chunk granularity** – Default = function/method/class. Adjustable by language
-
-## 📝 Design Decisions
-
--   **Node only** → Devs run everything via `npx`, no Python, no Docker
--   **SQLite over HelixDB** → One local database for vectors and relations, no external dependencies
--   **Committed codemap** → Context travels with the repo → cloning works offline
--   **Chunk granularity** → Default = function/method/class. Adjustable by language
--   **Read-only by default** → Server only exposes read methods. Writing is done via CLI
-
-## 🧩 Extending PAMPA
-
-| Idea                  | Hint                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| **More languages**    | Install tree-sitter grammar and add to `LANG_RULES`                                         |
-| **Custom embeddings** | Export `OPENAI_API_KEY` or replace OpenAI with any provider that returns `vector: number[]` |
-| **Security**          | Run behind a reverse proxy with authentication                                              |
-| **VS Code Plugin**    | Point an MCP WebView client to your local server                                            |
-
-## 🤝 Contributing
-
-For guidelines on contributing to this project, please see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
-
-## 📜 Code of Conduct
-
-Please read our [Code of Conduct](docs/CODE_OF_CONDUCT.md) before participating in our project.
-
-## 📄 License
-
-This project is licensed under the ISC License. See the [LICENSE](LICENSE) file for details.
-
----
-
-## 🇦🇷 About PAMPA
-
-**PAMPA** is an Argentine word referring to the vast, fertile plains of South America. Just as the Pampas connect different regions and provide rich, accessible resources, PAMPA connects your codebase to AI agents, providing rich, accessible code memory across your entire project.
-
-Made with ❤️ in Argentina 🇦🇷
+When debug mode is enabled, PAMPA creates log files in the project directory specified by the `

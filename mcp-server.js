@@ -705,6 +705,141 @@ server.tool(
     }
 );
 
+/**
+ * Tool to update a project index
+ * 
+ * IMPORTANT: This tool updates the PAMPA database at `{path}/.pampa/pampa.db`
+ * Run this after making code changes to keep your AI agent's memory current.
+ * It re-scans all files and updates embeddings for changed functions.
+ * 
+ * WHEN TO USE:
+ * - After creating new functions
+ * - After modifying existing functions
+ * - After deleting functions
+ * - At the start of development sessions
+ * - Before major code analysis tasks
+ */
+server.tool(
+    "update_project",
+    {
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path to update (same directory where you ran index_project)"),
+        provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)")
+    },
+    async ({ path: projectPath, provider }) => {
+        const context = { projectPath, provider, timestamp: new Date().toISOString(), operation: 'update' };
+
+        // Update logger working path
+        errorLogger.updateWorkingPath(projectPath || '.');
+
+        if (debugMode) {
+            errorLogger.debugLog('update_project tool called', context);
+        }
+
+        try {
+            // Clean and validate parameters
+            const cleanPath = projectPath ? projectPath.trim() : '.';
+            const cleanProvider = provider ? provider.trim() : 'auto';
+
+            // Verify directory exists
+            if (!fs.existsSync(cleanPath)) {
+                throw new Error(`Directory ${cleanPath} does not exist`);
+            }
+
+            // Check if already indexed
+            const dbPath = path.join(cleanPath, '.pampa', 'pampa.db');
+            const isFirstTime = !fs.existsSync(dbPath);
+
+            if (debugMode) {
+                errorLogger.debugLog('Starting project update', {
+                    projectPath: path.resolve(cleanPath),
+                    provider: cleanProvider,
+                    databaseExists: !isFirstTime,
+                    databasePath: dbPath
+                });
+            }
+
+            const result = await safeAsyncCall(
+                () => service.indexProject({ repoPath: cleanPath, provider: cleanProvider }),
+                { ...context, projectPath: cleanPath, provider: cleanProvider, step: 'updateProject_call' }
+            );
+
+            if (!result.success) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `❌ Update failed: ${result.message || 'Unknown error'}\n\n` +
+                            `Expected database: ${cleanPath}/.pampa/pampa.db\n` +
+                            `Error logged to ${errorLogger.errorLogPath}`
+                    }],
+                    isError: true
+                };
+            }
+
+            const operationText = isFirstTime ? 'indexed' : 'updated';
+            let responseText = `🔄 Project ${operationText} successfully!\n\n` +
+                `📊 Statistics:\n` +
+                `- Processed chunks: ${result.processedChunks}\n` +
+                `- Total chunks: ${result.totalChunks}\n` +
+                `- Provider: ${result.provider}\n\n` +
+                `📁 Database location: ${cleanPath}/.pampa/pampa.db\n\n` +
+                `✅ Your AI agent now has access to the latest code changes!\n\n` +
+                `💡 Next steps:\n` +
+                `- Use search_code to find functions\n` +
+                `- Run update_project again after making code changes`;
+
+            if (result.errors && result.errors.length > 0) {
+                responseText += `\n\n⚠️ Warnings (${result.errors.length} errors occurred):\n`;
+                result.errors.slice(0, 3).forEach(error => {
+                    responseText += `- ${error.type}: ${error.error}\n`;
+                });
+                if (result.errors.length > 3) {
+                    responseText += `... and ${result.errors.length - 3} more errors\n`;
+                }
+            }
+
+            if (debugMode) {
+                errorLogger.debugLog('update_project completed successfully', {
+                    processedChunks: result.processedChunks,
+                    totalChunks: result.totalChunks,
+                    provider: result.provider,
+                    errorsCount: result.errors?.length || 0,
+                    operation: operationText
+                });
+            }
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }],
+                isError: false
+            };
+        } catch (error) {
+            await errorLogger.logAsync(error, { ...context, step: 'update_project_tool' });
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `❌ ERROR updating project: ${error.message}\n\n` +
+                        `Technical details:\n` +
+                        `- Directory: ${projectPath}\n` +
+                        `- Provider: ${provider}\n` +
+                        `- Expected database location: ${projectPath}/.pampa/pampa.db\n` +
+                        `- Timestamp: ${context.timestamp}\n\n` +
+                        `Error logged to ${errorLogger.errorLogPath}\n\n` +
+                        `Possible solutions:\n` +
+                        `- Verify directory exists and is accessible\n` +
+                        `- Run index_project first if this is a new project\n` +
+                        `- Install necessary dependencies (npm install)\n` +
+                        `- Try with a different provider\n` +
+                        `- Check write permissions in the directory`
+                }],
+                isError: true
+            };
+        }
+    }
+);
+
 // ============================================================================
 // RESOURCES - Expose project data
 // ============================================================================
