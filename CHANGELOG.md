@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/tecnomanu/pampa/compare/v1.8.3...v1.9.0) (2025-05-29)
+
+
+### Features
+
+* **search:** ✨ implementar búsqueda híbrida con ranking progresivo y información completa de archivos ([0fa4e6f](https://github.com/tecnomanu/pampa/commit/0fa4e6fea3105ac93adb794664067c0b8b464205))
+
 ## [1.8.3](https://github.com/tecnomanu/pampa/compare/v1.8.2...v1.8.3) (2025-05-29)
 
 
