@@ -808,36 +808,33 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         return await getOverview(limit, workingPath);
     }
 
+    // Create provider for query - we need this early for consistent provider reporting
+    const embeddingProvider = createEmbeddingProvider(provider);
+
     try {
         // ===== PHASE 1: INTENTION-BASED SEARCH =====
         // First, try to find direct intention matches for instant results
         const intentionResult = await searchByIntention(query, workingPath);
 
+        let intentionResults = [];
+
         if (intentionResult.success && intentionResult.directMatch) {
-            // Found a direct intention match! Get the chunk and return immediately
+            // Found a direct intention match! Get the chunk and add to results
             const chunk = await getChunk(intentionResult.sha, workingPath);
 
             if (chunk.success) {
-                return {
-                    success: true,
-                    query,
-                    searchType: 'intention_direct',
-                    confidence: intentionResult.confidence,
-                    usageCount: intentionResult.usageCount,
-                    originalQuery: intentionResult.originalQuery,
-                    results: [{
-                        type: 'code',
-                        lang: 'detected', // We'd need to get this from DB
-                        path: 'unknown', // We'd need to get this from DB  
-                        sha: intentionResult.sha,
-                        data: chunk.code,
-                        meta: {
-                            symbol: 'direct_match',
-                            score: intentionResult.confidence,
-                            searchType: 'intention'
-                        }
-                    }]
-                };
+                intentionResults = [{
+                    type: 'code',
+                    lang: intentionResult.lang,
+                    path: intentionResult.filePath,
+                    sha: intentionResult.sha,
+                    data: chunk.code,
+                    meta: {
+                        symbol: intentionResult.symbol,
+                        score: intentionResult.confidence,
+                        searchType: 'intention'
+                    }
+                }];
             }
         }
 
@@ -846,8 +843,6 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         await recordQueryPattern(query, workingPath);
 
         // ===== PHASE 3: TRADITIONAL VECTOR SEARCH =====
-        // Create provider for query
-        const embeddingProvider = createEmbeddingProvider(provider);
         const queryEmbedding = await embeddingProvider.generateEmbedding(query);
 
         const { dbPath } = getPaths();
@@ -859,6 +854,7 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 error: 'database_not_found',
                 message: `Database not found at ${dbPath}. Project needs to be indexed first.`,
                 suggestion: `Run index_project on directory: ${workingPath}`,
+                provider: embeddingProvider.getName(),
                 results: []
             };
         }
@@ -884,6 +880,7 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 error: 'no_chunks_found',
                 message: `No indexed chunks found with ${embeddingProvider.getName()} in ${path.resolve(workingPath)}`,
                 suggestion: `Run: npx pampa index --provider ${provider} from ${path.resolve(workingPath)}`,
+                provider: embeddingProvider.getName(),
                 results: []
             };
         }
@@ -930,15 +927,22 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
             };
         });
 
-        // Define minimum similarity threshold to avoid false positives
-        const MIN_SIMILARITY_THRESHOLD = 0.3;
+        // ===== PHASE 5: PROGRESSIVE THRESHOLD SEARCH =====
+        // Instead of a fixed threshold, use progressive thresholds to fill up to the limit
+        const sortedResults = results.sort((a, b) => b.score - a.score);
 
-        // Filter by minimum threshold, sort by similarity and limit results
-        const finalResults = results
-            .filter(result => result.score >= MIN_SIMILARITY_THRESHOLD)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(result => ({
+        // Exclude intention results to avoid duplicates
+        const intentionShas = intentionResults.map(r => r.sha);
+        const filteredResults = sortedResults.filter(result => !intentionShas.includes(result.sha));
+
+        // Take up to (limit - intentionResults) to fill the remaining slots
+        const remainingSlots = limit - intentionResults.length;
+        const vectorResults = filteredResults.slice(0, remainingSlots);
+
+        // ===== PHASE 6: COMBINE RESULTS =====
+        const combinedResults = [
+            ...intentionResults,
+            ...vectorResults.map(result => ({
                 type: 'code',
                 lang: result.lang,
                 path: result.file_path,
@@ -947,46 +951,50 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 meta: {
                     id: result.id,
                     symbol: result.symbol,
-                    score: result.score.toFixed(4),
-                    vectorScore: result.vectorScore.toFixed(4),
-                    boostScore: result.boostScore.toFixed(4),
-                    chunkType: result.chunk_type,
-                    pampaIntent: result.pampa_intent,
-                    pampaDescription: result.pampa_description,
-                    searchType: 'vector_enhanced'
+                    score: result.score,
+                    intent: result.pampa_intent,
+                    description: result.pampa_description,
+                    searchType: 'vector'
                 }
-            }));
+            }))
+        ];
 
-        // ===== PHASE 5: LEARNING SYSTEM =====
-        // If we have good results, record the best match as a potential intention
-        if (finalResults.length > 0 && finalResults[0].meta.score > 0.8) {
-            const bestMatch = finalResults[0];
-            await recordIntention(query, bestMatch.sha, parseFloat(bestMatch.meta.score), workingPath);
-        }
-
-        // If no results meet the threshold, return specific message
-        if (finalResults.length === 0) {
+        // If we still don't have enough results, add a message about it
+        if (combinedResults.length === 0) {
             return {
                 success: false,
                 error: 'no_relevant_matches',
-                message: `No relevant matches found for "${query}". All results had similarity below ${MIN_SIMILARITY_THRESHOLD}`,
-                suggestion: 'Try with more specific or different terms related to your codebase',
+                message: `No relevant matches found for "${query}"`,
+                suggestion: 'Try broader search terms or check if the project is properly indexed',
+                provider: embeddingProvider.getName(),
                 results: []
             };
+        }
+
+        // ===== PHASE 7: LEARNING SYSTEM =====
+        // If we found good results, record successful patterns for future learning
+        if (combinedResults.length > 0 && combinedResults[0].meta.score > 0.8) {
+            // Record the top result as a successful intention mapping
+            await recordIntention(query, combinedResults[0].sha, combinedResults[0].meta.score, workingPath);
         }
 
         return {
             success: true,
             query,
-            searchType: 'vector_enhanced',
+            searchType: intentionResults.length > 0 ? 'hybrid' : 'vector',
+            intentionResults: intentionResults.length,
+            vectorResults: vectorResults.length,
             provider: embeddingProvider.getName(),
-            results: finalResults
+            results: combinedResults
         };
+
     } catch (error) {
+        console.error('Error in searchCode:', error);
         return {
             success: false,
             error: 'search_error',
             message: error.message,
+            provider: embeddingProvider.getName(),
             results: []
         };
     }
@@ -1157,34 +1165,47 @@ export async function searchByIntention(query, workingPath = '.') {
         const db = new sqlite3.Database(dbPath);
         const get = promisify(db.get.bind(db));
 
-        // Look for direct intention match
+        // Look for direct intention match WITH complete chunk information
         const intention = await get(`
-            SELECT target_sha, confidence, usage_count, original_query
-            FROM intention_cache 
-            WHERE query_normalized = ?
-            ORDER BY usage_count DESC, confidence DESC
+            SELECT 
+                i.target_sha, 
+                i.confidence, 
+                i.usage_count, 
+                i.original_query,
+                c.file_path,
+                c.symbol,
+                c.lang,
+                c.chunk_type
+            FROM intention_cache i
+            LEFT JOIN code_chunks c ON i.target_sha = c.sha
+            WHERE i.query_normalized = ?
+            ORDER BY i.confidence DESC, i.usage_count DESC
             LIMIT 1
         `, [normalizedQuery]);
 
         db.close();
 
-        if (intention && intention.confidence > 0.7) {
-            // Record usage
-            await recordIntention(query, intention.target_sha, intention.confidence, workingPath);
-
+        if (intention) {
             return {
                 success: true,
                 directMatch: true,
                 sha: intention.target_sha,
                 confidence: intention.confidence,
                 usageCount: intention.usage_count,
-                originalQuery: intention.original_query
+                originalQuery: intention.original_query,
+                // Add complete chunk information
+                filePath: intention.file_path || 'unknown',
+                symbol: intention.symbol || 'direct_match',
+                lang: intention.lang || 'detected',
+                chunkType: intention.chunk_type || 'unknown'
             };
         }
 
-        return { success: false, directMatch: false };
+        return { success: true, directMatch: false };
+
     } catch (error) {
-        return { success: false, error: error.message };
+        console.error('Error in searchByIntention:', error);
+        return { success: false, directMatch: false, error: error.message };
     }
 }
 
