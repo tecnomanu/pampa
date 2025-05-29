@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/tecnomanu/pampa/compare/v1.5.0...v1.5.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* simplify update_project response messages - Show concise message when no changes detected - Remove unnecessary next steps text for updates - Clean and direct feedback for AI agents ([e4bb18b](https://github.com/tecnomanu/pampa/commit/e4bb18bdcb240beec2d9fbc0ebbee62b5d4abc5c))
+
 # [1.5.0](https://github.com/tecnomanu/pampa/compare/v1.4.0...v1.5.0) (2025-05-29)
 
 

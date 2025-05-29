@@ -108,7 +108,7 @@ La configuración es idéntica a Claude Desktop. Cursor utiliza el mismo sistema
 
 **Además, instala esta regla en tu aplicación para que use PAMPA efectivamente:**
 
-Copia el contenido de [RULE_FOR_PAMPA_MCP.md](RULE_FOR_PAMPA_MCP.md) en las instrucciones de tu agente o sistema de IA.
+Copia el contenido de [RULE_FOR_PAMPA_MCP.md](RULE_FOR_PAMPA_MCP.md) (en inglés para mejor compatibilidad) en las instrucciones de tu agente o sistema de IA.
 
 ### 4. ¡Listo! Tu agente ahora puede buscar código
 

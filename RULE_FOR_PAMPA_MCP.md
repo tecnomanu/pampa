@@ -1,32 +1,32 @@
-# Regla para Uso de PAMPA MCP
+# PAMPA MCP Usage Rule
 
-Tienes acceso a PAMPA, un sistema de memoria de código que indexa y permite buscar semánticamente en proyectos.
+You have access to PAMPA, a code memory system that indexes and allows semantic search in projects.
 
-## Instrucciones Básicas
+## Basic Instructions
 
-1. **SIEMPRE al iniciar una sesión:**
+1. **ALWAYS at the start of a session:**
 
-    - Ejecuta `get_project_stats` para verificar si el proyecto está indexado
-    - Si no hay base de datos, ejecuta `index_project`
-    - Ejecuta `update_project` para sincronizar con cambios recientes
+    - Run `get_project_stats` to check if the project is indexed
+    - If no database exists, run `index_project`
+    - Run `update_project` to sync with recent changes
 
-2. **ANTES de crear cualquier función:**
+2. **BEFORE creating any function:**
 
-    - Usa `search_code` con consultas semánticas como "autenticación usuario", "validar email", "manejar errores"
-    - Revisa el código existente con `get_code_chunk` antes de escribir código nuevo
+    - Use `search_code` with semantic queries like "user authentication", "validate email", "error handling"
+    - Review existing code with `get_code_chunk` before writing new code
 
-3. **DESPUÉS de modificar código:**
-    - Ejecuta `update_project` para actualizar la base de conocimiento
-    - Esto mantiene la memoria del proyecto sincronizada
+3. **AFTER modifying code:**
+    - Run `update_project` to update the knowledge base
+    - This keeps the project memory synchronized
 
-## Herramientas Disponibles
+## Available Tools
 
--   `search_code(query, limit)` - Busca código semánticamente
--   `get_code_chunk(sha)` - Obtiene código completo de un chunk
--   `index_project(path)` - Indexa proyecto por primera vez
--   `update_project(path)` - Actualiza índice después de cambios
--   `get_project_stats(path)` - Estadísticas del proyecto
+-   `search_code(query, limit)` - Search code semantically
+-   `get_code_chunk(sha)` - Get complete code of a chunk
+-   `index_project(path)` - Index project for the first time
+-   `update_project(path)` - Update index after changes
+-   `get_project_stats(path)` - Get project statistics
 
-## Estrategia
+## Strategy
 
-Usa PAMPA como tu memoria de proyecto. Busca antes de crear, mantén actualizado después de cambios, y aprovecha el conocimiento existente para evitar duplicación de código.
+Use PAMPA as your project memory. Search before creating, keep updated after changes, and leverage existing knowledge to avoid code duplication.

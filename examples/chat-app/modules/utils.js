@@ -341,5 +341,80 @@ export function camelToSnake(str) {
  * Convierte snake_case a camelCase
  */
 export function snakeToCamel(str) {
-    return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+    return str.replace(/([-_][a-z])/g, group =>
+        group.toUpperCase().replace('-', '').replace('_', '')
+    );
+}
+
+/**
+ * Valida si una contraseña cumple con los requisitos de seguridad
+ * @param {string} password - La contraseña a validar
+ * @returns {object} - Objeto con resultado de validación y detalles
+ */
+export function validateSecurePassword(password) {
+    const result = {
+        isValid: false,
+        errors: [],
+        strength: 'weak'
+    };
+
+    if (!password || typeof password !== 'string') {
+        result.errors.push('Password is required');
+        return result;
+    }
+
+    // Verificar longitud mínima
+    if (password.length < 8) {
+        result.errors.push('Password must be at least 8 characters long');
+    }
+
+    // Verificar longitud máxima
+    if (password.length > 128) {
+        result.errors.push('Password must be no more than 128 characters long');
+    }
+
+    // Verificar que contenga al menos una letra minúscula
+    if (!/[a-z]/.test(password)) {
+        result.errors.push('Password must contain at least one lowercase letter');
+    }
+
+    // Verificar que contenga al menos una letra mayúscula
+    if (!/[A-Z]/.test(password)) {
+        result.errors.push('Password must contain at least one uppercase letter');
+    }
+
+    // Verificar que contenga al menos un número
+    if (!/\d/.test(password)) {
+        result.errors.push('Password must contain at least one number');
+    }
+
+    // Verificar que contenga al menos un carácter especial
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+        result.errors.push('Password must contain at least one special character');
+    }
+
+    // Verificar que no contenga espacios
+    if (/\s/.test(password)) {
+        result.errors.push('Password cannot contain spaces');
+    }
+
+    // Determinar la fuerza de la contraseña
+    let strengthScore = 0;
+    if (password.length >= 8) strengthScore++;
+    if (password.length >= 12) strengthScore++;
+    if (/[a-z]/.test(password)) strengthScore++;
+    if (/[A-Z]/.test(password)) strengthScore++;
+    if (/\d/.test(password)) strengthScore++;
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strengthScore++;
+    if (password.length >= 16) strengthScore++;
+
+    if (strengthScore >= 6) {
+        result.strength = 'strong';
+    } else if (strengthScore >= 4) {
+        result.strength = 'medium';
+    }
+
+    result.isValid = result.errors.length === 0;
+
+    return result;
 } 
