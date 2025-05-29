@@ -1,3 +1,15 @@
+# [1.7.0](https://github.com/tecnomanu/pampa/compare/v1.6.1...v1.7.0) (2025-05-29)
+
+
+### Bug Fixes
+
+* **service:** 🐛 agregar verificación de base de datos en funciones de learning ([c459bef](https://github.com/tecnomanu/pampa/commit/c459befafb707d6281dec96ae4a1f67a1fe159cf))
+
+
+### Features
+
+* **semantic:** ✨ implement intelligent semantic search system with auto-extraction, intention cache, and optional [@pampa-comments](https://github.com/pampa-comments) for +32% to +85% precision boost ([4e03c06](https://github.com/tecnomanu/pampa/commit/4e03c069bc9a0450820b07310731bbf462a7628c))
+
 ## [1.6.1](https://github.com/tecnomanu/pampa/compare/v1.6.0...v1.6.1) (2025-05-29)
 
 
