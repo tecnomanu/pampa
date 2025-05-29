@@ -553,32 +553,82 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                     }
 
                     if (node.type === 'method_declaration' || node.type === 'method_definition') {
-                        // Look for method identifier
-                        for (let i = 0; i < node.childCount; i++) {
-                            const child = node.child(i);
-                            if (child.type === 'identifier' || child.type === 'property_identifier') {
-                                return source.slice(child.startIndex, child.endIndex);
+                        // PHP method_declaration structure: [visibility] function name(params) { ... }
+                        // Need to search deeper for the function name
+                        function findMethodName(n) {
+                            // Look for 'name' field in method_declaration
+                            if (n.type === 'name' || n.type === 'identifier' || n.type === 'property_identifier') {
+                                const text = source.slice(n.startIndex, n.endIndex);
+                                // Skip keywords like 'public', 'private', 'function', etc.
+                                if (!['public', 'private', 'protected', 'static', 'function', 'abstract', 'final'].includes(text)) {
+                                    return text;
+                                }
                             }
+
+                            // Recursively search children
+                            for (let i = 0; i < n.childCount; i++) {
+                                const result = findMethodName(n.child(i));
+                                if (result) return result;
+                            }
+                            return null;
                         }
+
+                        const methodName = findMethodName(node);
+                        if (methodName) return methodName;
                     }
 
                     if (node.type === 'class_declaration') {
                         // Look for class name
                         for (let i = 0; i < node.childCount; i++) {
                             const child = node.child(i);
-                            if (child.type === 'identifier' || child.type === 'type_identifier') {
-                                return source.slice(child.startIndex, child.endIndex);
+                            if (child.type === 'identifier' || child.type === 'type_identifier' || child.type === 'name') {
+                                const text = source.slice(child.startIndex, child.endIndex);
+                                // Skip keyword 'class'
+                                if (text !== 'class') {
+                                    return text;
+                                }
                             }
                         }
                     }
 
-                    // Fallback: use first identifier found
-                    for (let i = 0; i < node.childCount; i++) {
-                        const child = node.child(i);
-                        if (child.type === 'identifier') {
-                            return source.slice(child.startIndex, child.endIndex);
+                    // Enhanced fallback: look for any meaningful identifier
+                    function findAnyIdentifier(n) {
+                        if (n.type === 'identifier' || n.type === 'name' || n.type === 'property_identifier') {
+                            const text = source.slice(n.startIndex, n.endIndex);
+                            // Skip common keywords
+                            if (!['public', 'private', 'protected', 'static', 'function', 'class', 'abstract', 'final', 'const', 'var', 'let'].includes(text)) {
+                                return text;
+                            }
                         }
+
+                        for (let i = 0; i < n.childCount; i++) {
+                            const result = findAnyIdentifier(n.child(i));
+                            if (result) return result;
+                        }
+                        return null;
                     }
+
+                    const anyIdentifier = findAnyIdentifier(node);
+                    if (anyIdentifier) return anyIdentifier;
+
+                    // Last resort: try to extract from the code itself using regex
+                    const code = source.slice(node.startIndex, node.endIndex);
+
+                    // For PHP methods: public function methodName(
+                    const phpMethodMatch = code.match(/(?:public|private|protected)?\s*(?:static)?\s*function\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+                    if (phpMethodMatch) return phpMethodMatch[1];
+
+                    // For JS/TS functions: function functionName(
+                    const jsFunctionMatch = code.match(/function\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+                    if (jsFunctionMatch) return jsFunctionMatch[1];
+
+                    // For JS/TS methods: methodName(args) {
+                    const jsMethodMatch = code.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*\{/);
+                    if (jsMethodMatch) return jsMethodMatch[1];
+
+                    // For class declarations: class ClassName
+                    const classMatch = code.match(/class\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+                    if (classMatch) return classMatch[1];
 
                     // If we find nothing, use type + position
                     return `${node.type}_${node.startIndex}`;
