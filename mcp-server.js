@@ -485,7 +485,8 @@ server.tool(
         const context = { projectPath, timestamp: new Date().toISOString() };
 
         try {
-            const overviewResult = await service.getOverview(20);
+            const cleanPath = projectPath ? projectPath.trim() : '.';
+            const overviewResult = await service.getOverview(20, cleanPath);
 
             if (!overviewResult.success) {
                 return {
@@ -588,7 +589,7 @@ server.resource(
     "pampa://overview",
     async (uri) => {
         try {
-            const results = await service.getOverview(20);
+            const results = await service.getOverview(20, '.');
 
             if (!results.success || results.results.length === 0) {
                 return "Project not indexed or empty. Use index_project first.";

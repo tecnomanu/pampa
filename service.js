@@ -32,21 +32,67 @@ const LANG_RULES = {
     '.java': { lang: 'java', ts: LangJava, nodeTypes: ['method_declaration', 'class_declaration'] }
 };
 
-const CHUNK_DIR = '.pampa/chunks';
-const CODEMAP = 'pampa.codemap.json';
-const DB_PATH = '.pampa/pampa.db';
+// Global context for paths - gets set by setBasePath()
+let globalContext = {
+    basePath: null,
+    chunkDir: null,
+    codemap: null,
+    dbPath: null
+};
+
+// Function to set the base path for all operations
+export function setBasePath(basePath = '.') {
+    const resolvedPath = path.resolve(basePath);
+    globalContext.basePath = resolvedPath;
+    globalContext.chunkDir = path.join(resolvedPath, '.pampa/chunks');
+    globalContext.codemap = path.join(resolvedPath, 'pampa.codemap.json');
+    globalContext.dbPath = path.join(resolvedPath, '.pampa/pampa.db');
+}
+
+// Function to get current paths (with fallback to relative paths if not set)
+function getPaths() {
+    if (!globalContext.basePath) {
+        // Fallback to relative paths if setBasePath() was not called
+        return {
+            chunkDir: '.pampa/chunks',
+            codemap: 'pampa.codemap.json',
+            dbPath: '.pampa/pampa.db'
+        };
+    }
+
+    return {
+        chunkDir: globalContext.chunkDir,
+        codemap: globalContext.codemap,
+        dbPath: globalContext.dbPath
+    };
+}
+
+// Function to clear the global context (useful for testing or cleanup)
+export function clearBasePath() {
+    globalContext = {
+        basePath: null,
+        chunkDir: null,
+        codemap: null,
+        dbPath: null
+    };
+}
 
 // ============================================================================
 // DATABASE UTILITIES
 // ============================================================================
 
-export async function initDatabase(dimensions) {
-    const dbDir = path.dirname(DB_PATH);
+export async function initDatabase(dimensions, basePath = '.') {
+    // Set base path
+    setBasePath(basePath);
+
+    const { dbPath } = getPaths();
+    const dbDir = path.dirname(dbPath);
+
     if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
     }
 
-    const db = new sqlite3.Database(DB_PATH);
+    const db = new sqlite3.Database(dbPath);
     const run = promisify(db.run.bind(db));
 
     // Create table for code chunks
@@ -142,11 +188,12 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
         await embeddingProvider.init();
     }
 
-    // Initialize database
-    await initDatabase(embeddingProvider.getDimensions());
+    // Initialize database with the correct base path
+    await initDatabase(embeddingProvider.getDimensions(), repo);
 
-    const codemap = fs.existsSync(path.join(repo, CODEMAP)) ?
-        JSON.parse(fs.readFileSync(path.join(repo, CODEMAP))) : {};
+    const { codemap: codemapPath, chunkDir, dbPath } = getPaths();
+    const codemap = fs.existsSync(codemapPath) ?
+        JSON.parse(fs.readFileSync(codemapPath)) : {};
 
     const parser = new Parser();
     let processedChunks = 0;
@@ -246,7 +293,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                     const embedding = await embeddingProvider.generateEmbedding(code);
 
                     // Save to database
-                    const db = new sqlite3.Database(DB_PATH);
+                    const db = new sqlite3.Database(dbPath);
                     const run = promisify(db.run.bind(db));
 
                     await run(`
@@ -267,8 +314,8 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                     db.close();
 
                     // Save compressed chunk
-                    fs.mkdirSync(path.join(repo, CHUNK_DIR), { recursive: true });
-                    fs.writeFileSync(path.join(repo, CHUNK_DIR, `${sha}.gz`), zlib.gzipSync(code));
+                    fs.mkdirSync(chunkDir, { recursive: true });
+                    fs.writeFileSync(path.join(chunkDir, `${sha}.gz`), zlib.gzipSync(code));
 
                     // Update codemap
                     codemap[chunkId] = {
@@ -293,7 +340,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
     }
 
     // Save updated codemap
-    fs.writeFileSync(path.join(repo, CODEMAP), JSON.stringify(codemap, null, 2));
+    fs.writeFileSync(codemapPath, JSON.stringify(codemap, null, 2));
 
     // Return structured result
     return {
@@ -306,22 +353,20 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
 }
 
 export async function searchCode(query, limit = 10, provider = 'auto', workingPath = '.') {
+    // Set the base path for all operations
+    setBasePath(workingPath);
+
     if (!query || !query.trim()) {
         return await getOverview(limit, workingPath);
     }
 
-    // Change to working directory
-    const originalCwd = process.cwd();
-    const absoluteWorkingPath = path.resolve(workingPath);
-
     try {
-        process.chdir(absoluteWorkingPath);
-
         // Create provider for query
         const embeddingProvider = createEmbeddingProvider(provider);
         const queryEmbedding = await embeddingProvider.generateEmbedding(query);
 
-        const db = new sqlite3.Database(DB_PATH);
+        const { dbPath } = getPaths();
+        const db = new sqlite3.Database(dbPath);
         const all = promisify(db.all.bind(db));
 
         // Search chunks from same provider and dimensions
@@ -338,8 +383,8 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
             return {
                 success: false,
                 error: 'no_chunks_found',
-                message: `No indexed chunks found with ${embeddingProvider.getName()} in ${absoluteWorkingPath}`,
-                suggestion: `Run: npx pampa index --provider ${provider} from ${absoluteWorkingPath}`,
+                message: `No indexed chunks found with ${embeddingProvider.getName()} in ${path.resolve(workingPath)}`,
+                suggestion: `Run: npx pampa index --provider ${provider} from ${path.resolve(workingPath)}`,
                 results: []
             };
         }
@@ -404,21 +449,17 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
             message: error.message,
             results: []
         };
-    } finally {
-        process.chdir(originalCwd);
     }
 }
 
 // Function to get project overview
 export async function getOverview(limit = 20, workingPath = '.') {
-    // Change to working directory
-    const originalCwd = process.cwd();
-    const absoluteWorkingPath = path.resolve(workingPath);
+    // Set the base path for all operations
+    setBasePath(workingPath);
 
     try {
-        process.chdir(absoluteWorkingPath);
-
-        const db = new sqlite3.Database(DB_PATH);
+        const { dbPath } = getPaths();
+        const db = new sqlite3.Database(dbPath);
         const all = promisify(db.all.bind(db));
 
         const chunks = await all(`
@@ -454,24 +495,22 @@ export async function getOverview(limit = 20, workingPath = '.') {
             message: error.message,
             results: []
         };
-    } finally {
-        process.chdir(originalCwd);
     }
 }
 
 // Function to get chunk content
 export async function getChunk(sha, workingPath = '.') {
-    // Change to working directory
-    const originalCwd = process.cwd();
-    const absoluteWorkingPath = path.resolve(workingPath);
+    // Set the base path for all operations
+    setBasePath(workingPath);
 
     try {
-        process.chdir(absoluteWorkingPath);
+        const { chunkDir } = getPaths();
+        const gzPath = path.join(chunkDir, `${sha}.gz`);
 
-        const gzPath = path.join(CHUNK_DIR, `${sha}.gz`);
         if (!fs.existsSync(gzPath)) {
-            throw new Error(`Chunk not found: ${sha} in ${absoluteWorkingPath}`);
+            throw new Error(`Chunk not found: ${sha} in ${path.resolve(workingPath)}`);
         }
+
         return {
             success: true,
             content: zlib.gunzipSync(fs.readFileSync(gzPath)).toString('utf8')
@@ -482,7 +521,5 @@ export async function getChunk(sha, workingPath = '.') {
             error: 'chunk_not_found',
             message: error.message
         };
-    } finally {
-        process.chdir(originalCwd);
     }
 } 
