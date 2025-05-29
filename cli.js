@@ -23,13 +23,13 @@ program
     .description('Index project and build/update pampa.codemap.json')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
     .action(async (projectPath = '.', options) => {
-        console.log('🚀 Starting project indexing...');
-        console.log(`🧠 Provider: ${options.provider}`);
+        console.log('Starting project indexing...');
+        console.log(`Provider: ${options.provider}`);
         try {
             await indexProject({ repoPath: projectPath, provider: options.provider });
-            console.log('✅ Indexing completed successfully');
+            console.log('Indexing completed successfully');
         } catch (error) {
-            console.error('❌ Error during indexing:', error.message);
+            console.error('ERROR during indexing:', error.message);
             process.exit(1);
         }
     });
@@ -45,27 +45,27 @@ program
             const results = await searchCode(query, limit, options.provider);
 
             if (results.length === 0) {
-                console.log(`❌ No results found for: "${query}"`);
-                console.log('💡 Suggestions:');
+                console.log(`No results found for: "${query}"`);
+                console.log('Suggestions:');
                 console.log('  - Verify that the project is indexed (pampa index)');
                 console.log('  - Try with more general terms');
                 console.log(`  - Verify you use the same provider: --provider ${options.provider}`);
                 return;
             }
 
-            console.log(`🔍 Found ${results.length} results for: "${query}"\n`);
+            console.log(`Found ${results.length} results for: "${query}"\n`);
 
             results.forEach((result, index) => {
-                console.log(`${index + 1}. 📁 ${result.path}`);
-                console.log(`   🔧 ${result.meta.symbol} (${result.lang})`);
-                console.log(`   📊 Similarity: ${result.meta.score}`);
-                console.log(`   🔑 SHA: ${result.sha}`);
+                console.log(`${index + 1}. FILE: ${result.path}`);
+                console.log(`   SYMBOL: ${result.meta.symbol} (${result.lang})`);
+                console.log(`   SIMILARITY: ${result.meta.score}`);
+                console.log(`   SHA: ${result.sha}`);
                 console.log('');
             });
 
-            console.log('💡 Use "pampa mcp" to start the MCP server and get the complete code');
+            console.log('TIP: Use "pampa mcp" to start the MCP server and get the complete code');
         } catch (error) {
-            console.error('❌ Search error:', error.message);
+            console.error('Search error:', error.message);
             process.exit(1);
         }
     });
@@ -74,9 +74,9 @@ program
     .command('mcp')
     .description('Start MCP server for AI agent integration')
     .action(() => {
-        console.log('🚀 Starting PAMPA MCP server...');
-        console.log('📡 Server will be available for MCP connections via stdio');
-        console.log('🔗 Configure your MCP client to connect to this process');
+        console.log('Starting PAMPA MCP server...');
+        console.log('Server will be available for MCP connections via stdio');
+        console.log('Configure your MCP client to connect to this process');
         console.log('');
 
         // Execute MCP server
@@ -86,25 +86,25 @@ program
         });
 
         mcpServer.on('error', (error) => {
-            console.error('❌ Error starting MCP server:', error.message);
+            console.error('ERROR starting MCP server:', error.message);
             process.exit(1);
         });
 
         mcpServer.on('exit', (code) => {
             if (code !== 0) {
-                console.error(`❌ MCP server terminated with code: ${code}`);
+                console.error(`MCP server terminated with code: ${code}`);
                 process.exit(code);
             }
         });
 
         // Handle signals to close cleanly
         process.on('SIGINT', () => {
-            console.log('\n🛑 Closing MCP server...');
+            console.log('\nClosing MCP server...');
             mcpServer.kill('SIGINT');
         });
 
         process.on('SIGTERM', () => {
-            console.log('\n🛑 Closing MCP server...');
+            console.log('\nClosing MCP server...');
             mcpServer.kill('SIGTERM');
         });
     });
@@ -120,8 +120,8 @@ program
             const codemapPath = 'pampa.codemap.json';
 
             if (!fs.existsSync(codemapPath)) {
-                console.log('📊 Project not indexed');
-                console.log('💡 Run "pampa index" to index the project');
+                console.log('Project not indexed');
+                console.log('TIP: Run "pampa index" to index the project');
                 return;
             }
 
@@ -144,23 +144,23 @@ program
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10);
 
-            console.log('📊 PAMPA project information\n');
-            console.log(`📈 Total indexed functions: ${chunks.length}`);
+            console.log('PAMPA project information\n');
+            console.log(`Total indexed functions: ${chunks.length}`);
             console.log('');
 
-            console.log('🔧 By language:');
+            console.log('By language:');
             Object.entries(langStats).forEach(([lang, count]) => {
                 console.log(`  ${lang}: ${count} functions`);
             });
             console.log('');
 
-            console.log('📁 Files with most functions:');
+            console.log('Files with most functions:');
             topFiles.forEach(([file, count]) => {
                 console.log(`  ${file}: ${count} functions`);
             });
 
         } catch (error) {
-            console.error('❌ Error getting information:', error.message);
+            console.error('ERROR getting information:', error.message);
             process.exit(1);
         }
     });

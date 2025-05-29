@@ -328,8 +328,12 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
             };
         });
 
-        // Sort by similarity and limit results
+        // Define minimum similarity threshold to avoid false positives
+        const MIN_SIMILARITY_THRESHOLD = 0.3;
+
+        // Filter by minimum threshold, sort by similarity and limit results
         const finalResults = results
+            .filter(result => result.score >= MIN_SIMILARITY_THRESHOLD)
             .sort((a, b) => b.score - a.score)
             .slice(0, limit)
             .map(result => ({
@@ -344,6 +348,17 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
                     score: result.score.toFixed(4)
                 }
             }));
+
+        // If no results meet the threshold, return specific message
+        if (finalResults.length === 0) {
+            return {
+                success: false,
+                error: 'no_relevant_matches',
+                message: `No relevant matches found for "${query}". All results had similarity below ${MIN_SIMILARITY_THRESHOLD}`,
+                suggestion: 'Try with more specific or different terms related to your codebase',
+                results: []
+            };
+        }
 
         return {
             success: true,

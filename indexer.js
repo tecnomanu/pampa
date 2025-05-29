@@ -10,8 +10,8 @@ import * as service from './service.js';
 
 // Re-export service functions with presentation layer
 export async function indexProject({ repoPath = '.', provider = 'auto' }) {
-    console.log('🚀 Starting project indexing...');
-    console.log(`🧠 Provider: ${provider}`);
+    console.log('Starting project indexing...');
+    console.log(`Provider: ${provider}`);
 
     const result = await service.indexProject({
         repoPath,
@@ -22,17 +22,17 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
     });
 
     if (result.success) {
-        console.log('✅ Indexing completed successfully');
+        console.log('Indexing completed successfully');
 
         // Log errors if any
         if (result.errors.length > 0) {
-            console.log(`⚠️  ${result.errors.length} errors occurred during indexing:`);
+            console.log(`${result.errors.length} errors occurred during indexing:`);
             result.errors.forEach(error => {
-                console.error(`❌ ${error.type}: ${error.error}`);
+                console.error(`ERROR ${error.type}: ${error.error}`);
             });
         }
     } else {
-        console.error('❌ Indexing failed');
+        console.error('Indexing failed');
         throw new Error(result.message || 'Unknown indexing error');
     }
 
@@ -44,8 +44,11 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
 
     if (!result.success) {
         if (result.error === 'no_chunks_found') {
-            console.log(`⚠️  ${result.message}`);
-            console.log(`💡 ${result.suggestion}`);
+            console.log(`WARNING: ${result.message}`);
+            console.log(`TIP: ${result.suggestion}`);
+        } else if (result.error === 'no_relevant_matches') {
+            console.log(`NO MATCHES: ${result.message}`);
+            console.log(`TIP: ${result.suggestion}`);
         } else {
             console.error('Search error:', result.message);
         }

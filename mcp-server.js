@@ -212,6 +212,16 @@ server.tool(
                         }],
                         isError: false
                     };
+                } else if (results.error === 'no_relevant_matches') {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: `No relevant matches found.\n\n` +
+                                `Message: ${results.message}\n` +
+                                `Suggestion: ${results.suggestion}`
+                        }],
+                        isError: false
+                    };
                 } else {
                     return {
                         content: [{
