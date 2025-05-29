@@ -1,6 +1,6 @@
 # PAMPA – Protocol for Augmented Memory of Project Artifacts
 
-**Version 1.0.1** · **MCP Compatible** · **Node.js**
+**Version 1.3.0** · **MCP Compatible** · **Node.js**
 
 Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
 
