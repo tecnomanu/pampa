@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/tecnomanu/pampa/compare/v1.3.0...v1.3.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* :bug: search only relevants or similary by 0.3 threshold query ([7b344e5](https://github.com/tecnomanu/pampa/commit/7b344e597e45703837e88ea105b48989cf079f8b))
+
 # [1.3.0](https://github.com/tecnomanu/pampa/compare/v1.2.1...v1.3.0) (2025-05-29)
 
 
