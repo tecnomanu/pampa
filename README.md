@@ -17,6 +17,8 @@
 Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
 
 > 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version**
+>
+> 🤖 **[Are you an AI Agent? Click here for setup instructions →](README_FOR_AGENTS.md)**
 
 ## 🌟 Why PAMPA?
 

@@ -17,6 +17,8 @@
 Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – en un comando `npx`.
 
 > 🇪🇸 **Versión en Español** | 🇺🇸 **[English Version](README.md)**
+>
+> 🤖 **[¿Eres un Agente de IA? Haz clic aquí para instrucciones de configuración →](README_FOR_AGENTS.md)**
 
 ## 🌟 ¿Por qué PAMPA?
 
