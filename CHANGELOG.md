@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/tecnomanu/pampa/compare/v1.0.0...v1.0.1) (2025-05-28)
+
+
+### Bug Fixes
+
+* :bug: many errors on mcp tools ([9f2cf66](https://github.com/tecnomanu/pampa/commit/9f2cf66895bde5658e62f8d048484d09f602439f))
+
 # 1.0.0 (2025-05-28)
 
 ### Bug Fixes
