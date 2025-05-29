@@ -1,6 +1,6 @@
 # PAMPA – Protocol for Augmented Memory of Project Artifacts
 
-**Version 1.3.0** · **MCP Compatible** · **Node.js**
+**Version 1.3.5** · **MCP Compatible** · **Node.js**
 
 Give your AI agents an always-updated, queryable memory of any codebase – in one `npx` command.
 
@@ -33,6 +33,8 @@ Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and sta
 │ pampa.codemap.json                │
 │ .pampa/chunks/*.gz                │
 │ .pampa/pampa.db (SQLite)          │
+│ pampa_debug.log (if --debug)      │
+│ pampa_error.log (errors only)     │
 └────────────────────────────────────┘
          ▲ ▲
          │ write │ read
@@ -60,6 +62,7 @@ Any MCP-compatible agent (Cursor, Claude, etc.) can now search, retrieve and sta
 | **Chunks dir** | .gz code bodies (lazy loading)                                    | gzip                            |
 | **SQLite**     | Stores vectors and metadata                                       | sqlite3                         |
 | **MCP Server** | Exposes tools and resources over standard MCP protocol            | @modelcontextprotocol/sdk       |
+| **Logging**    | Debug and error logging in project directory                      | File-based logs                 |
 
 ## 🚀 MCP Installation & Setup
 
@@ -96,6 +99,8 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 	}
 }
 ```
+
+**Debug Mode:** To enable detailed logging, use `["pampa", "mcp", "--debug"]` in the args array.
 
 **Note:** The `OPENAI_API_KEY` is optional. Without it, PAMPA will use local models automatically.
 
@@ -161,29 +166,81 @@ The MCP server exposes these tools that agents can use:
 
 Search code semantically in the indexed project.
 
--   **Parameters**: `query` (string), `limit` (number, optional)
--   **Example**: "authentication function", "error handling"
+-   **Parameters**:
+    -   `query` (string) - Semantic search query (e.g., "authentication function", "error handling")
+    -   `limit` (number, optional) - Maximum number of results to return (default: 10)
+    -   `provider` (string, optional) - Embedding provider (default: "auto")
+    -   `path` (string, optional) - **PROJECT ROOT** directory path where PAMPA database is located
+-   **Database Location**: `{path}/.pampa/pampa.db`
+-   **Returns**: List of matching code chunks with similarity scores and SHAs
 
 ### `get_code_chunk`
 
 Get complete code of a specific chunk.
 
--   **Parameters**: `sha` (string)
+-   **Parameters**:
+    -   `sha` (string) - SHA of the code chunk to retrieve (obtained from search_code results)
+    -   `path` (string, optional) - **PROJECT ROOT** directory path (same as used in search_code)
+-   **Chunk Location**: `{path}/.pampa/chunks/{sha}.gz`
 -   **Returns**: Complete source code
 
 ### `index_project`
 
 Index a project from the agent.
 
--   **Parameters**: `path` (string, optional)
+-   **Parameters**:
+    -   `path` (string, optional) - **PROJECT ROOT** directory path to index (will create .pampa/ subdirectory here)
+    -   `provider` (string, optional) - Embedding provider (default: "auto")
+-   **Creates**:
+    -   `{path}/.pampa/pampa.db` (SQLite database with embeddings)
+    -   `{path}/.pampa/chunks/` (compressed code chunks)
+    -   `{path}/pampa.codemap.json` (lightweight index for version control)
 -   **Effect**: Updates database and codemap
 
 ### `get_project_stats`
 
 Get indexed project statistics.
 
--   **Parameters**: `path` (string, optional)
+-   **Parameters**:
+    -   `path` (string, optional) - **PROJECT ROOT** directory path where PAMPA database is located
+-   **Database Location**: `{path}/.pampa/pampa.db`
 -   **Returns**: Statistics by language and file
+
+## 🐛 Debug Mode
+
+PAMPA supports detailed debug logging for troubleshooting MCP operations:
+
+### Enabling Debug Mode
+
+```bash
+# For MCP server
+npx pampa mcp --debug
+
+# In Claude Desktop config
+{
+    "mcpServers": {
+        "pampa": {
+            "command": "npx",
+            "args": ["pampa", "mcp", "--debug"]
+        }
+    }
+}
+```
+
+### Debug Files Created
+
+When debug mode is enabled, PAMPA creates log files in the project directory specified by the `path` parameter:
+
+-   `{path}/pampa_debug.log` - Detailed operation logs
+-   `{path}/pampa_error.log` - Error logs only
+
+### What Gets Logged
+
+-   Tool calls and parameters
+-   Working directory changes
+-   Database operations
+-   Search results and performance
+-   Error details with context
 
 ## 📊 Available MCP Resources
 
