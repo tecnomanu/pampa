@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/tecnomanu/pampa/compare/v1.3.1...v1.3.2) (2025-05-29)
+
+
+### Bug Fixes
+
+* :bug: using version from package-json ([97c4726](https://github.com/tecnomanu/pampa/commit/97c4726b4c9abdbf6876760e16b1cc032480e9c3))
+
 ## [1.3.1](https://github.com/tecnomanu/pampa/compare/v1.3.0...v1.3.1) (2025-05-29)
 
 
