@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/tecnomanu/pampa/compare/v1.8.1...v1.8.2) (2025-05-29)
+
+
+### Bug Fixes
+
+* :bug: repair ci/cd wirfkiw ([f246a5d](https://github.com/tecnomanu/pampa/commit/f246a5d806681943c259e983f62e5d1207278434))
+
 ## [1.8.1](https://github.com/tecnomanu/pampa/compare/v1.8.0...v1.8.1) (2025-05-29)
 
 
