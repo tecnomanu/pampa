@@ -3,11 +3,11 @@
 import { spawn } from 'child_process';
 
 /**
- * Script simple para probar el servidor MCP
+ * Simple script to test the MCP server
  */
 
 async function testMcpServer() {
-    console.log('🔄 Iniciando test del servidor MCP...\n');
+    console.log('🔄 Starting MCP server test...\n');
 
     const server = spawn('node', ['mcp-server.js'], {
         stdio: ['pipe', 'pipe', 'pipe']
@@ -41,7 +41,7 @@ async function testMcpServer() {
         }
     };
 
-    console.log('📤 Enviando mensaje de inicialización...');
+    console.log('📤 Sending initialization message...');
     server.stdin.write(JSON.stringify(initMessage) + '\n');
 
     // Esperar respuesta de inicialización
@@ -60,7 +60,7 @@ async function testMcpServer() {
         }
     };
 
-    console.log('📤 Enviando test de get_project_stats...');
+    console.log('📤 Sending get_project_stats test...');
     server.stdin.write(JSON.stringify(testMessage) + '\n');
 
     // Esperar respuesta
@@ -68,7 +68,7 @@ async function testMcpServer() {
 
     server.kill();
 
-    console.log('\n📊 Resultados del test:\n');
+    console.log('\n📊 Test results:\n');
     console.log('📤 STDOUT:');
     console.log(output);
 
@@ -78,11 +78,11 @@ async function testMcpServer() {
     // Analizar si hay errores JSON
     const jsonErrors = errorOutput.match(/SyntaxError.*JSON/g);
     if (jsonErrors) {
-        console.log('\n❌ Errores JSON detectados:');
+        console.log('\n❌ JSON errors detected:');
         jsonErrors.forEach(error => console.log(`  - ${error}`));
-        console.log('\n💡 El servidor está enviando texto no-JSON al stream.');
+        console.log('\n💡 The server is sending non-JSON text to the stream.');
     } else {
-        console.log('\n✅ No se detectaron errores JSON en el stream.');
+        console.log('\n✅ No JSON errors detected in the stream.');
     }
 
     // Verificar si hay output JSON válido
@@ -97,26 +97,26 @@ async function testMcpServer() {
         } catch (e) {
             invalidJsonCount++;
             if (line.includes('✅') || line.includes('❌') || line.includes('🔄')) {
-                console.log(`⚠️  Línea no-JSON detectada: ${line.substring(0, 100)}...`);
+                console.log(`⚠️  Non-JSON line detected: ${line.substring(0, 100)}...`);
             }
         }
     });
 
-    console.log(`\n📈 Estadísticas del stream:`);
-    console.log(`  ✅ Líneas JSON válidas: ${validJsonCount}`);
-    console.log(`  ❌ Líneas no-JSON: ${invalidJsonCount}`);
+    console.log(`\n📈 Stream statistics:`);
+    console.log(`  ✅ Valid JSON lines: ${validJsonCount}`);
+    console.log(`  ❌ Non-JSON lines: ${invalidJsonCount}`);
 
     if (invalidJsonCount === 0) {
-        console.log('\n🎉 ¡Servidor MCP funcionando correctamente!');
+        console.log('\n🎉 MCP Server working correctly!');
     } else {
-        console.log('\n⚠️  Se detectaron problemas en el stream JSON.');
+        console.log('\n⚠️  Problems detected in the stream JSON.');
     }
 }
 
 // Ejecutar test si se llama directamente
-if (process.argv[1] && process.argv[1].endsWith('test-mcp.js')) {
+if (import.meta.url === `file://${process.argv[1]}`) {
     testMcpServer().catch(error => {
-        console.error('❌ Error en test MCP:', error);
+        console.error('❌ MCP test error:', error);
         process.exit(1);
     });
 } 

@@ -10,7 +10,7 @@ const searchTestCases = [
     {
         name: "Búsqueda válida",
         tool: "search_code",
-        args: { query: "función de chat" },
+        args: { query: "chat function" },
         shouldPass: true
     },
     {
@@ -156,10 +156,10 @@ async function testMcpTools() {
     console.log('🎯 Test completado!');
 }
 
-// Ejecutar test si se llama directamente
-if (process.argv[1] && process.argv[1].endsWith('test-search-code.js')) {
+// Run test if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
     testMcpTools().catch(error => {
-        console.error('❌ Error en test:', error);
+        console.error('❌ Test error:', error);
         process.exit(1);
     });
 } 

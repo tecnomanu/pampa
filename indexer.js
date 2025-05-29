@@ -28,7 +28,7 @@ const CODEMAP = 'pampa.codemap.json';
 const DB_PATH = '.pampa/pampa.db';
 
 // ============================================================================
-// PROVEEDORES DE EMBEDDINGS
+// EMBEDDING PROVIDERS
 // ============================================================================
 
 class EmbeddingProvider {
@@ -48,7 +48,7 @@ class EmbeddingProvider {
 class OpenAIProvider extends EmbeddingProvider {
     constructor() {
         super();
-        // Importación dinámica para evitar error si no está instalado
+        // Dynamic import to avoid error if not installed
         this.openai = null;
         this.model = 'text-embedding-3-large';
     }
@@ -93,7 +93,7 @@ class TransformersProvider extends EmbeddingProvider {
                 this.pipeline = await pipeline('feature-extraction', this.model);
                 this.initialized = true;
             } catch (error) {
-                throw new Error('Transformers.js no está instalado. Ejecuta: npm install @xenova/transformers');
+                throw new Error('Transformers.js is not installed. Run: npm install @xenova/transformers');
             }
         }
     }
@@ -131,7 +131,7 @@ class OllamaProvider extends EmbeddingProvider {
                 const ollama = await import('ollama');
                 this.ollama = ollama.default;
             } catch (error) {
-                throw new Error('Ollama no está instalado. Ejecuta: npm install ollama');
+                throw new Error('Ollama is not installed. Run: npm install ollama');
             }
         }
     }
@@ -146,7 +146,7 @@ class OllamaProvider extends EmbeddingProvider {
     }
 
     getDimensions() {
-        return 768; // nomic-embed-text (puede variar según modelo)
+        return 768; // nomic-embed-text (may vary by model)
     }
 
     getName() {
@@ -169,7 +169,7 @@ class CohereProvider extends EmbeddingProvider {
                     token: process.env.COHERE_API_KEY
                 });
             } catch (error) {
-                throw new Error('Cohere no está instalado. Ejecuta: npm install cohere-ai');
+                throw new Error('Cohere is not installed. Run: npm install cohere-ai');
             }
         }
     }
@@ -194,7 +194,7 @@ class CohereProvider extends EmbeddingProvider {
 }
 
 // ============================================================================
-// FACTORY PARA CREAR PROVEEDORES
+// FACTORY TO CREATE PROVIDERS
 // ============================================================================
 
 function createEmbeddingProvider(providerName = 'auto') {
@@ -210,7 +210,7 @@ function createEmbeddingProvider(providerName = 'auto') {
             return new CohereProvider();
         case 'auto':
         default:
-            // Auto-detectar el mejor proveedor disponible
+            // Auto-detect best available provider
             if (process.env.OPENAI_API_KEY) {
                 return new OpenAIProvider();
             } else if (process.env.COHERE_API_KEY) {
@@ -257,11 +257,17 @@ async function initDatabase(dimensions) {
     await run(`CREATE INDEX IF NOT EXISTS idx_lang ON code_chunks(lang)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_provider ON code_chunks(embedding_provider)`);
 
+    // Create index for searches
+    await run(`
+        CREATE INDEX IF NOT EXISTS idx_lang_provider 
+        ON code_chunks(lang, embedding_provider, embedding_dimensions)
+    `);
+
     db.close();
     // Base de datos SQLite inicializada silenciosamente
 }
 
-// Función para calcular similitud coseno
+// Function to calculate cosine similarity
 function cosineSimilarity(a, b) {
     if (a.length !== b.length) return 0;
 
@@ -286,15 +292,15 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
         ignore: ['**/vendor/**', '**/node_modules/**', '**/.git/**', '**/storage/**', '**/dist/**', '**/build/**']
     });
 
-    // Crear proveedor de embeddings UNA SOLA VEZ
+    // Create embedding provider ONCE ONLY
     const embeddingProvider = createEmbeddingProvider(provider);
 
-    // Inicializar el proveedor UNA SOLA VEZ
+    // Initialize provider ONCE ONLY
     if (embeddingProvider.init) {
         await embeddingProvider.init();
     }
 
-    // Inicializar base de datos
+    // Initialize database
     await initDatabase(embeddingProvider.getDimensions());
 
     const codemap = fs.existsSync(path.join(repo, CODEMAP)) ?
@@ -325,11 +331,11 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
             }
 
             async function yieldChunk(node) {
-                // Función más robusta para extraer el nombre del símbolo
+                // More robust function to extract symbol name
                 function extractSymbolName(node, source) {
-                    // Intentar diferentes formas de obtener el nombre según el tipo de nodo
+                    // Try different ways to get the name according to node type
                     if (node.type === 'function_declaration' || node.type === 'function_definition') {
-                        // Buscar el primer identificador después de 'function'
+                        // Look for first identifier after 'function'
                         for (let i = 0; i < node.childCount; i++) {
                             const child = node.child(i);
                             if (child.type === 'identifier') {
@@ -339,7 +345,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                     }
 
                     if (node.type === 'method_declaration' || node.type === 'method_definition') {
-                        // Buscar el identificador del método
+                        // Look for method identifier
                         for (let i = 0; i < node.childCount; i++) {
                             const child = node.child(i);
                             if (child.type === 'identifier' || child.type === 'property_identifier') {
@@ -349,7 +355,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                     }
 
                     if (node.type === 'class_declaration') {
-                        // Buscar el nombre de la clase
+                        // Look for class name
                         for (let i = 0; i < node.childCount; i++) {
                             const child = node.child(i);
                             if (child.type === 'identifier' || child.type === 'type_identifier') {
@@ -358,7 +364,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                         }
                     }
 
-                    // Fallback: usar el primer identificador encontrado
+                    // Fallback: use first identifier found
                     for (let i = 0; i < node.childCount; i++) {
                         const child = node.child(i);
                         if (child.type === 'identifier') {
@@ -366,7 +372,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                         }
                     }
 
-                    // Si no encontramos nada, usar el tipo + posición
+                    // If we find nothing, use type + position
                     return `${node.type}_${node.startIndex}`;
                 }
 
@@ -377,9 +383,9 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                 const sha = crypto.createHash('sha1').update(code).digest('hex');
                 const chunkId = `${rel}:${symbol}:${sha.substring(0, 8)}`;
 
-                // Verificar si el chunk ya existe y no ha cambiado
+                // Check if chunk already exists and hasn't changed
                 if (codemap[chunkId]?.sha === sha) {
-                    return; // Sin cambios
+                    return; // No changes
                 }
 
                 await embedAndStore({ code, chunkId, sha, lang: rule.lang, rel, symbol });
@@ -388,10 +394,10 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
 
             async function embedAndStore({ code, chunkId, sha, lang, rel, symbol }) {
                 try {
-                    // Generar embedding usando la instancia ya inicializada
+                    // Generate embedding using already initialized instance
                     const embedding = await embeddingProvider.generateEmbedding(code);
 
-                    // Guardar en base de datos
+                    // Save to database
                     const db = new sqlite3.Database(DB_PATH);
                     const run = promisify(db.run.bind(db));
 
@@ -412,11 +418,11 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
 
                     db.close();
 
-                    // Guardar chunk comprimido
+                    // Save compressed chunk
                     fs.mkdirSync(path.join(repo, CHUNK_DIR), { recursive: true });
                     fs.writeFileSync(path.join(repo, CHUNK_DIR, `${sha}.gz`), zlib.gzipSync(code));
 
-                    // Actualizar codemap
+                    // Update codemap
                     codemap[chunkId] = {
                         file: rel,
                         symbol,
@@ -426,22 +432,22 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
                         dimensions: embeddingProvider.getDimensions()
                     };
 
-                    // Chunk indexado silenciosamente
+                    // Chunk indexed silently
                 } catch (error) {
-                    console.error(`❌ Error indexando ${chunkId}:`, error.message);
+                    console.error(`❌ Error indexing ${chunkId}:`, error.message);
                 }
             }
 
             await walk(tree.rootNode);
         } catch (error) {
-            console.error(`❌ Error procesando ${rel}:`, error.message);
+            console.error(`❌ Error processing ${rel}:`, error.message);
         }
     }
 
-    // Guardar codemap actualizado
+    // Save updated codemap
     fs.writeFileSync(path.join(repo, CODEMAP), JSON.stringify(codemap, null, 2));
-    // Indexación completada silenciosamente
-    // Devolver estadísticas si es necesario
+    // Indexing completed silently
+    // Return statistics if needed
     return {
         processedChunks,
         totalChunks: Object.keys(codemap).length,
@@ -449,21 +455,21 @@ export async function indexProject({ repoPath = '.', provider = 'auto' }) {
     };
 }
 
-// Función para buscar código similar
+// Function to search similar code
 export async function searchCode(query, limit = 10, provider = 'auto') {
     if (!query.trim()) {
         return await getOverview(limit);
     }
 
     try {
-        // Crear proveedor para la consulta
+        // Create provider for query
         const embeddingProvider = createEmbeddingProvider(provider);
         const queryEmbedding = await embeddingProvider.generateEmbedding(query);
 
         const db = new sqlite3.Database(DB_PATH);
         const all = promisify(db.all.bind(db));
 
-        // Buscar chunks del mismo proveedor y dimensiones
+        // Search chunks from same provider and dimensions
         const chunks = await all(`
             SELECT id, file_path, symbol, sha, lang, embedding, embedding_provider, embedding_dimensions
             FROM code_chunks 
@@ -474,12 +480,12 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
         db.close();
 
         if (chunks.length === 0) {
-            console.log(`⚠️  No se encontraron chunks indexados con ${embeddingProvider.getName()}`);
-            console.log(`💡 Ejecuta: npx pampa index --provider ${provider}`);
+            console.log(`⚠️  No indexed chunks found with ${embeddingProvider.getName()}`);
+            console.log(`💡 Run: npx pampa index --provider ${provider}`);
             return [];
         }
 
-        // Calcular similitudes
+        // Calculate similarities
         const results = chunks.map(chunk => {
             const embedding = JSON.parse(chunk.embedding.toString());
             const similarity = cosineSimilarity(queryEmbedding, embedding);
@@ -494,7 +500,7 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
             };
         });
 
-        // Ordenar por similitud y limitar resultados
+        // Sort by similarity and limit results
         return results
             .sort((a, b) => b.score - a.score)
             .slice(0, limit)
@@ -503,7 +509,7 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
                 lang: result.lang,
                 path: result.file_path,
                 sha: result.sha,
-                data: null, // Se carga bajo demanda
+                data: null, // Loaded on demand
                 meta: {
                     id: result.id,
                     symbol: result.symbol,
@@ -511,12 +517,12 @@ export async function searchCode(query, limit = 10, provider = 'auto') {
                 }
             }));
     } catch (error) {
-        console.error('Error en búsqueda:', error);
+        console.error('Search error:', error);
         return [];
     }
 }
 
-// Función para obtener resumen del proyecto
+// Function to get project overview
 async function getOverview(limit = 20) {
     try {
         const db = new sqlite3.Database(DB_PATH);
@@ -544,16 +550,16 @@ async function getOverview(limit = 20) {
             }
         }));
     } catch (error) {
-        console.error('Error obteniendo resumen:', error);
+        console.error('Error getting overview:', error);
         return [];
     }
 }
 
-// Función para obtener el contenido de un chunk
+// Function to get chunk content
 export async function getChunk(sha) {
     const gzPath = path.join(CHUNK_DIR, `${sha}.gz`);
     if (!fs.existsSync(gzPath)) {
-        throw new Error(`Chunk no encontrado: ${sha}`);
+        throw new Error(`Chunk not found: ${sha}`);
     }
     return zlib.gunzipSync(fs.readFileSync(gzPath)).toString('utf8');
 }

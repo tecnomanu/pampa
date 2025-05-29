@@ -11,103 +11,103 @@ const __dirname = path.dirname(__filename);
 const program = new Command();
 program
     .name('pampa')
-    .description('PAMPA - Protocolo para Memoria Aumentada de Artefactos de Proyecto (MCP)')
+    .description('PAMPA - Protocol for Augmented Memory of Project Artifacts (MCP)')
     .version('0.4.0');
 
 program
     .command('index [path]')
-    .description('Indexar proyecto y construir/actualizar pampa.codemap.json')
-    .option('-p, --provider <provider>', 'proveedor de embeddings (auto|openai|transformers|ollama|cohere)', 'auto')
+    .description('Index project and build/update pampa.codemap.json')
+    .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
     .action(async (projectPath = '.', options) => {
-        console.log('🚀 Iniciando indexación del proyecto...');
-        console.log(`🧠 Proveedor: ${options.provider}`);
+        console.log('🚀 Starting project indexing...');
+        console.log(`🧠 Provider: ${options.provider}`);
         try {
             await indexProject({ repoPath: projectPath, provider: options.provider });
-            console.log('✅ Indexación completada exitosamente');
+            console.log('✅ Indexing completed successfully');
         } catch (error) {
-            console.error('❌ Error durante la indexación:', error.message);
+            console.error('❌ Error during indexing:', error.message);
             process.exit(1);
         }
     });
 
 program
     .command('search <query>')
-    .option('-k, --limit <num>', 'número máximo de resultados', '10')
-    .option('-p, --provider <provider>', 'proveedor de embeddings (auto|openai|transformers|ollama|cohere)', 'auto')
-    .description('Buscar código semánticamente en el proyecto indexado')
+    .option('-k, --limit <num>', 'maximum number of results', '10')
+    .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
+    .description('Search code semantically in the indexed project')
     .action(async (query, options) => {
         try {
             const limit = parseInt(options.limit);
             const results = await searchCode(query, limit, options.provider);
 
             if (results.length === 0) {
-                console.log(`❌ No se encontraron resultados para: "${query}"`);
-                console.log('💡 Sugerencias:');
-                console.log('  - Verifica que el proyecto esté indexado (pampa index)');
-                console.log('  - Intenta con términos más generales');
-                console.log(`  - Verifica que uses el mismo proveedor: --provider ${options.provider}`);
+                console.log(`❌ No results found for: "${query}"`);
+                console.log('💡 Suggestions:');
+                console.log('  - Verify that the project is indexed (pampa index)');
+                console.log('  - Try with more general terms');
+                console.log(`  - Verify you use the same provider: --provider ${options.provider}`);
                 return;
             }
 
-            console.log(`🔍 Encontrados ${results.length} resultados para: "${query}"\n`);
+            console.log(`🔍 Found ${results.length} results for: "${query}"\n`);
 
             results.forEach((result, index) => {
                 console.log(`${index + 1}. 📁 ${result.path}`);
                 console.log(`   🔧 ${result.meta.symbol} (${result.lang})`);
-                console.log(`   📊 Similitud: ${result.meta.score}`);
+                console.log(`   📊 Similarity: ${result.meta.score}`);
                 console.log(`   🔑 SHA: ${result.sha}`);
                 console.log('');
             });
 
-            console.log('💡 Usa "pampa mcp" para iniciar el servidor MCP y obtener el código completo');
+            console.log('💡 Use "pampa mcp" to start the MCP server and get the complete code');
         } catch (error) {
-            console.error('❌ Error en la búsqueda:', error.message);
+            console.error('❌ Search error:', error.message);
             process.exit(1);
         }
     });
 
 program
     .command('mcp')
-    .description('Iniciar servidor MCP para integración con agentes de IA')
+    .description('Start MCP server for AI agent integration')
     .action(() => {
-        console.log('🚀 Iniciando servidor MCP PAMPA...');
-        console.log('📡 El servidor estará disponible para conexiones MCP via stdio');
-        console.log('🔗 Configura tu cliente MCP para conectarse a este proceso');
+        console.log('🚀 Starting PAMPA MCP server...');
+        console.log('📡 Server will be available for MCP connections via stdio');
+        console.log('🔗 Configure your MCP client to connect to this process');
         console.log('');
 
-        // Ejecutar el servidor MCP
+        // Execute MCP server
         const serverPath = path.join(__dirname, 'mcp-server.js');
         const mcpServer = spawn('node', [serverPath], {
             stdio: 'inherit'
         });
 
         mcpServer.on('error', (error) => {
-            console.error('❌ Error iniciando servidor MCP:', error.message);
+            console.error('❌ Error starting MCP server:', error.message);
             process.exit(1);
         });
 
         mcpServer.on('exit', (code) => {
             if (code !== 0) {
-                console.error(`❌ Servidor MCP terminó con código: ${code}`);
+                console.error(`❌ MCP server terminated with code: ${code}`);
                 process.exit(code);
             }
         });
 
-        // Manejar señales para cerrar limpiamente
+        // Handle signals to close cleanly
         process.on('SIGINT', () => {
-            console.log('\n🛑 Cerrando servidor MCP...');
+            console.log('\n🛑 Closing MCP server...');
             mcpServer.kill('SIGINT');
         });
 
         process.on('SIGTERM', () => {
-            console.log('\n🛑 Cerrando servidor MCP...');
+            console.log('\n🛑 Closing MCP server...');
             mcpServer.kill('SIGTERM');
         });
     });
 
 program
     .command('info')
-    .description('Mostrar información sobre el proyecto indexado')
+    .description('Show information about the indexed project')
     .action(async () => {
         try {
             const fs = await import('fs');
@@ -116,21 +116,21 @@ program
             const codemapPath = 'pampa.codemap.json';
 
             if (!fs.existsSync(codemapPath)) {
-                console.log('📊 Proyecto no indexado');
-                console.log('💡 Ejecuta "pampa index" para indexar el proyecto');
+                console.log('📊 Project not indexed');
+                console.log('💡 Run "pampa index" to index the project');
                 return;
             }
 
             const codemap = JSON.parse(fs.readFileSync(codemapPath, 'utf8'));
             const chunks = Object.values(codemap);
 
-            // Estadísticas por lenguaje
+            // Statistics by language
             const langStats = chunks.reduce((acc, chunk) => {
                 acc[chunk.lang] = (acc[chunk.lang] || 0) + 1;
                 return acc;
             }, {});
 
-            // Estadísticas por archivo
+            // Statistics by file
             const fileStats = chunks.reduce((acc, chunk) => {
                 acc[chunk.file] = (acc[chunk.file] || 0) + 1;
                 return acc;
@@ -140,28 +140,28 @@ program
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10);
 
-            console.log('📊 Información del proyecto PAMPA\n');
-            console.log(`📈 Total de funciones indexadas: ${chunks.length}`);
+            console.log('📊 PAMPA project information\n');
+            console.log(`📈 Total indexed functions: ${chunks.length}`);
             console.log('');
 
-            console.log('🔧 Por lenguaje:');
+            console.log('🔧 By language:');
             Object.entries(langStats).forEach(([lang, count]) => {
-                console.log(`  ${lang}: ${count} funciones`);
+                console.log(`  ${lang}: ${count} functions`);
             });
             console.log('');
 
-            console.log('📁 Archivos con más funciones:');
+            console.log('📁 Files with most functions:');
             topFiles.forEach(([file, count]) => {
-                console.log(`  ${file}: ${count} funciones`);
+                console.log(`  ${file}: ${count} functions`);
             });
 
         } catch (error) {
-            console.error('❌ Error obteniendo información:', error.message);
+            console.error('❌ Error getting information:', error.message);
             process.exit(1);
         }
     });
 
-// Mostrar ayuda si no se proporciona comando
+// Show help if no command is provided
 if (process.argv.length <= 2) {
     program.help();
 }

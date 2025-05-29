@@ -13,15 +13,15 @@
     -   [x] Configurar package.json scripts
     -   [x] Setup husky para pre-commit
 
-### 🔄 En Progreso
-
--   [ ] **Tarea 2**: Convertir proyecto a inglés + README bilingüe
+-   [x] **Tarea 2**: Convertir proyecto a inglés + README bilingüe
 
     -   **Commit**: `feat: 🌍 convert project to english with bilingual README`
-    -   [ ] Convertir todos los textos a inglés
-    -   [ ] Crear README.md en inglés
-    -   [ ] Mantener README_es.md en español
-    -   [ ] Links cruzados entre idiomas
+    -   [x] Convertir todos los textos a inglés
+    -   [x] Crear README.md en inglés
+    -   [x] Mantener README_es.md en español
+    -   [x] Links cruzados entre idiomas
+
+### 🔄 En Progreso
 
 -   [ ] **Tarea 3**: Reestructurar README con nuevas secciones
 
