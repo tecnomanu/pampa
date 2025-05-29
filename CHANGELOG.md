@@ -1,3 +1,10 @@
+## [1.8.3](https://github.com/tecnomanu/pampa/compare/v1.8.2...v1.8.3) (2025-05-29)
+
+
+### Bug Fixes
+
+* **mcp:** 🐛 corregir get_code_chunk que intentaba acceder a result.content en lugar de result.code ([00a5166](https://github.com/tecnomanu/pampa/commit/00a51668f208665ae1a9f78a0244d7b2aad115ef))
+
 ## [1.8.2](https://github.com/tecnomanu/pampa/compare/v1.8.1...v1.8.2) (2025-05-29)
 
 
