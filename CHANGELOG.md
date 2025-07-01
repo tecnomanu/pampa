@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/tecnomanu/pampa/compare/v1.9.0...v1.10.0) (2025-07-01)
+
+
+### Features
+
+* **config:** add Node.js version support files and update config ([d1efc19](https://github.com/tecnomanu/pampa/commit/d1efc190bfd0ff101ff38124e26bc3a510c1fde4))
+
 # [1.9.0](https://github.com/tecnomanu/pampa/compare/v1.8.3...v1.9.0) (2025-05-29)
 
 
