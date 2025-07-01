@@ -47,3 +47,5 @@ test/test-implementations/*
 
 # Archivos específicos de PAMPA que SÍ se deben commitear:
 # pampa.codemap.json - ¡IMPORTANTE: NO ignorar este archivo! 
+
+.history
