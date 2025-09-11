@@ -67,6 +67,7 @@ Any MCP-compatible agent (Cursor, Claude, etc.) can now search with natural lang
 
 -   [🚀 MCP Installation (Recommended)](#-mcp-installation-recommended)
 -   [🧠 Semantic Features](#-semantic-features)
+-   [📝 Supported Languages](#-supported-languages)
 -   [💻 Direct CLI Usage](#-direct-cli-usage)
 -   [🧠 Embedding Providers](#-embedding-providers)
 -   [🏗️ Architecture](#️-architecture)
@@ -136,6 +137,16 @@ async function createStripeCheckoutSession(sessionData) {
 | Domain-specific | 0.7331         | 0.8874      | **+21%**    |
 | Intent matching | ~0.6           | **1.0000**  | **+67%**    |
 | General search  | 0.6-0.8        | 0.8-1.0     | **+32-85%** |
+
+## 📝 Supported Languages
+
+PAMPA can index and search code in several languages out of the box:
+
+-   JavaScript / TypeScript (`.js`, `.ts`, `.tsx`, `.jsx`)
+-   PHP (`.php`)
+-   Python (`.py`)
+-   Go (`.go`)
+-   Java (`.java`)
 
 ## 🚀 MCP Installation (Recommended)
 
