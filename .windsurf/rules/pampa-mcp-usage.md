@@ -1,0 +1,55 @@
+---
+trigger: always_on
+---
+
+# PAMPA MCP Usage Rule
+
+You have access to PAMPA, a code memory system that indexes and allows semantic search in projects. This rule is based on [RULE_FOR_PAMPA_MCP.md](mdc:RULE_FOR_PAMPA_MCP.md).
+
+## Important: Language Usage
+
+**ALWAYS use English for all PAMPA queries and searches.** The semantic search engine is optimized for English technical terms and provides significantly better results than other languages.
+
+Examples:
+
+-   ✅ Good: "user authentication", "payment processing", "database connection"
+-   ❌ Avoid: "autenticación de usuario", "procesamiento de pagos"
+
+## Basic Instructions
+
+1. **ALWAYS at the start of a session:**
+
+    - Run `get_project_stats` to check if the project is indexed
+    - If no database exists, run `index_project`
+    - Run `update_project` to sync with recent changes
+
+2. **BEFORE creating any function:**
+
+    - Use `search_code` with semantic queries like "user authentication", "validate email", "error handling"
+    - Review existing code with `get_code_chunk` before writing new code
+
+3. **AFTER modifying code:**
+    - Run `update_project` to update the knowledge base
+    - This keeps the project memory synchronized
+
+## Available MCP Tools
+
+-   `search_code(query, limit, path)` - Search code semantically in the project
+-   `get_code_chunk(sha, path)` - Get complete source code of a specific chunk
+-   `index_project(path, provider)` - Index project for the first time
+-   `update_project(path, provider)` - Update index after code changes
+-   `get_project_stats(path)` - Get project statistics and overview
+
+## Strategy
+
+Use PAMPA as your project memory. Search before creating, keep updated after changes, and leverage existing knowledge to avoid code duplication.
+
+## Example Workflow
+
+```
+1. get_project_stats() → Check if project is indexed
+2. search_code("authentication function") → Find existing auth code
+3. get_code_chunk(sha_from_search) → Review implementation
+4. [Make code changes]
+5. update_project() → Sync new changes to memory
+```

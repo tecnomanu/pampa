@@ -1,8 +1,63 @@
-# Dependencias
+# Dependencias Node.js
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Dependencias Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Entornos virtuales Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Dependencias Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+
+# Dependencias PHP
+vendor/
+composer.lock
+*.phar
+
+# Dependencias Go
+go.sum
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
 
 # Base de datos y chunks locales (no commitear)
 .pampa/

@@ -155,13 +155,13 @@ class PampaDiagnostics {
     async checkMcpServer() {
         console.log('\n🖥️  Verificando servidor MCP...');
 
-        if (!fs.existsSync('mcp-server.js')) {
-            this.addIssue('mcp-server.js no encontrado');
+        if (!fs.existsSync('src/mcp-server.js')) {
+            this.addIssue('src/mcp-server.js no encontrado');
             return;
         }
 
         try {
-            const serverContent = fs.readFileSync('mcp-server.js', 'utf8');
+            const serverContent = fs.readFileSync('src/mcp-server.js', 'utf8');
 
             // Verificar importaciones críticas
             const criticalImports = [
@@ -188,20 +188,20 @@ class PampaDiagnostics {
             }
 
         } catch (error) {
-            this.addIssue(`Error leyendo mcp-server.js: ${error.message}`);
+            this.addIssue(`Error leyendo src/mcp-server.js: ${error.message}`);
         }
     }
 
     async checkIndexer() {
         console.log('\n🔧 Verificando indexer...');
 
-        if (!fs.existsSync('indexer.js')) {
-            this.addIssue('indexer.js no encontrado');
+        if (!fs.existsSync('src/indexer.js')) {
+            this.addIssue('src/indexer.js no encontrado');
             return;
         }
 
         try {
-            const indexerContent = fs.readFileSync('indexer.js', 'utf8');
+            const indexerContent = fs.readFileSync('src/indexer.js', 'utf8');
 
             // Verificar funciones críticas
             const criticalFunctions = [
@@ -219,7 +219,7 @@ class PampaDiagnostics {
             }
 
         } catch (error) {
-            this.addIssue(`Error leyendo indexer.js: ${error.message}`);
+            this.addIssue(`Error leyendo src/indexer.js: ${error.message}`);
         }
     }
 
@@ -245,7 +245,7 @@ class PampaDiagnostics {
         console.log('\n💡 RECOMENDACIONES:');
 
         if (this.issues.some(i => i.includes('.pampa'))) {
-            console.log('   • Ejecuta: node mcp-server.js y usa index_project');
+            console.log('   • Ejecuta: node src/mcp-server.js y usa index_project');
         }
 
         if (this.issues.some(i => i.includes('dependencia'))) {

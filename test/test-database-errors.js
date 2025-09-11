@@ -32,7 +32,7 @@ function testSkipped(name, reason) {
 // Try to import service functions, handle native dependency errors gracefully
 let getOverview, searchCode;
 try {
-    const serviceModule = await import('../service.js');
+    const serviceModule = await import('../src/service.js');
     getOverview = serviceModule.getOverview;
     searchCode = serviceModule.searchCode;
 } catch (error) {
