@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/tecnomanu/pampa/compare/v1.11.0...v1.11.1) (2025-09-11)
+
+
+### Bug Fixes
+
+* **examples:** 🐛 add multi-language chat examples ([5581b99](https://github.com/tecnomanu/pampa/commit/5581b99d08773492c0f3970fbb3877a2c673e540))
+
 # [1.11.0](https://github.com/tecnomanu/pampa/compare/v1.10.0...v1.11.0) (2025-09-11)
 
 
