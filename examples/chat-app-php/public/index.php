@@ -1,0 +1,127 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use Slim\Factory\AppFactory;
+use Slim\Views\Twig;
+use Slim\Views\TwigMiddleware;
+
+/**
+ * PAMPA Chat Web Application
+ * Slim Framework application serving the chat interface
+ */
+
+// Create Slim app
+$app = AppFactory::create();
+
+// Add error middleware
+$app->addErrorMiddleware(true, true, true);
+
+// Routes
+$app->get('/', function ($request, $response, $args) {
+    $html = '<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAMPA Chat - PHP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Modal de registro -->
+        <div id="registerModal" class="modal">
+            <div class="modal-content">
+                <h2><i class="fas fa-user-plus"></i> Únete al Chat PHP</h2>
+                <form id="registerForm">
+                    <input 
+                        type="text" 
+                        id="usernameInput" 
+                        placeholder="Ingresa tu nombre de usuario..." 
+                        maxlength="20"
+                        required
+                    >
+                    <button type="submit">
+                        <i class="fas fa-sign-in-alt"></i> Entrar al Chat
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Interfaz principal del chat -->
+        <div id="chatInterface" style="display: none;">
+            <!-- Header -->
+            <header class="chat-header">
+                <div class="header-left">
+                    <h1><i class="fas fa-comments"></i> PAMPA Chat PHP</h1>
+                    <span id="currentRoom" class="current-room">General</span>
+                </div>
+                <div class="header-right">
+                    <span id="userInfo" class="user-info"></span>
+                    <button id="roomsBtn" class="header-btn" title="Ver salas">
+                        <i class="fas fa-door-open"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Contenedor principal -->
+            <div class="chat-container">
+                <!-- Sidebar de salas -->
+                <aside id="roomsSidebar" class="rooms-sidebar">
+                    <h3><i class="fas fa-list"></i> Salas Disponibles</h3>
+                    <div id="roomsList" class="rooms-list"></div>
+                </aside>
+
+                <!-- Área principal del chat -->
+                <main class="chat-main">
+                    <!-- Área de mensajes -->
+                    <div id="messagesContainer" class="messages-container">
+                        <div id="messages" class="messages"></div>
+                    </div>
+
+                    <!-- Área de entrada -->
+                    <div class="input-area">
+                        <div class="input-container">
+                            <input 
+                                type="text" 
+                                id="messageInput" 
+                                placeholder="Escribe tu mensaje... (usa /help para comandos)"
+                                maxlength="500"
+                            >
+                            <button id="sendBtn" type="button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="input-help">
+                            <small>
+                                <i class="fas fa-info-circle"></i>
+                                Usa <strong>/help</strong> para ver comandos disponibles
+                            </small>
+                        </div>
+                    </div>
+                </main>
+
+                <!-- Sidebar de usuarios -->
+                <aside id="usersSidebar" class="users-sidebar">
+                    <h3><i class="fas fa-users"></i> Usuarios Online</h3>
+                    <div id="usersList" class="users-list"></div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- Notificaciones -->
+        <div id="notifications" class="notifications"></div>
+    </div>
+
+    <script src="chat.js"></script>
+</body>
+</html>';
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html');
+});
+
+$app->run();

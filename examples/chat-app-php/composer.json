@@ -1,0 +1,31 @@
+{
+	"name": "pampa/chat-app-php",
+	"description": "PAMPA Chat Example - PHP with Slim Framework and ReactPHP WebSockets",
+	"type": "project",
+	"require": {
+		"php": ">=8.1",
+		"slim/slim": "^4.12",
+		"slim/psr7": "^1.6",
+		"react/socket": "^1.15",
+		"react/http": "^1.9",
+		"ratchet/pawl": "^0.4",
+		"ramsey/uuid": "^4.7",
+		"monolog/monolog": "^3.5"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^10.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"PampaChat\\": "src/"
+		}
+	},
+	"scripts": {
+		"start": "php -S localhost:8080 -t public",
+		"websocket": "php websocket-server.php"
+	},
+	"config": {
+		"optimize-autoloader": true,
+		"sort-packages": true
+	}
+}
