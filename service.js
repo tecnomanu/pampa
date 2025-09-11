@@ -16,6 +16,7 @@ import LangGo from 'tree-sitter-go';
 import LangJava from 'tree-sitter-java';
 import LangJS from 'tree-sitter-javascript';
 import LangPHP from 'tree-sitter-php';
+import LangPython from 'tree-sitter-python';
 import LangTSX from 'tree-sitter-typescript/bindings/node/tsx.js';
 import LangTS from 'tree-sitter-typescript/bindings/node/typescript.js';
 import { promisify } from 'util';
@@ -29,6 +30,13 @@ const LANG_RULES = {
         nodeTypes: ['function_definition', 'method_declaration'],
         variableTypes: ['const_declaration', 'assignment_expression'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
+    },
+    '.py': {
+        lang: 'python',
+        ts: LangPython,
+        nodeTypes: ['function_definition', 'class_definition'],
+        variableTypes: ['assignment', 'expression_statement'],
+        commentPattern: /"""[\s\S]*?"""|'''[\s\S]*?'''/g
     },
     '.js': {
         lang: 'javascript',

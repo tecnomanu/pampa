@@ -47,11 +47,22 @@ Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, o
 
 -   [🚀 Instalación como MCP (Recomendado)](#-instalación-como-mcp-recomendado)
 -   [💻 Uso Directo con CLI](#-uso-directo-con-cli)
+-   [📝 Lenguajes Soportados](#-lenguajes-soportados)
 -   [🧠 Proveedores de Embeddings](#-proveedores-de-embeddings)
 -   [🏗️ Arquitectura](#️-arquitectura)
 -   [🔧 Herramientas MCP Disponibles](#-herramientas-mcp-disponibles)
 -   [📊 Recursos MCP Disponibles](#-recursos-mcp-disponibles)
 -   [🎯 Prompts MCP Disponibles](#-prompts-mcp-disponibles)
+
+## 📝 Lenguajes Soportados
+
+PAMPA puede indexar y buscar código en varios lenguajes de forma nativa:
+
+-   JavaScript / TypeScript (`.js`, `.ts`, `.tsx`, `.jsx`)
+-   PHP (`.php`)
+-   Python (`.py`)
+-   Go (`.go`)
+-   Java (`.java`)
 
 ## 🚀 Instalación como MCP (Recomendado)
 
