@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/tecnomanu/pampa/compare/v1.10.0...v1.11.0) (2025-09-11)
+
+
+### Features
+
+* **structure:** ✨ reorganize project structure and add Python support ([544e5fb](https://github.com/tecnomanu/pampa/commit/544e5fbe7ccad59a4c68d4efae7e1fc811d2f4e0))
+
 # [1.10.0](https://github.com/tecnomanu/pampa/compare/v1.9.0...v1.10.0) (2025-07-01)
 
 
