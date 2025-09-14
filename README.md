@@ -1,6 +1,6 @@
 # PAMPA – Protocol for Augmented Memory of Project Artifacts
 
-**Version 1.6.x** · **Semantic Search** · **MCP Compatible** · **Node.js**
+**Version 1.11.x** · **Semantic Search** · **MCP Compatible** · **Node.js**
 
 <p align="center">
   <img src="assets/pampa_banner.jpg" alt="Agent Rules Kit Logo" width="729" />
@@ -18,17 +18,21 @@ Give your AI agents an always-updated, queryable memory of any codebase – with
 
 > 🇪🇸 **[Versión en Español](README_es.md)** | 🇺🇸 **English Version** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
 
-## 🌟 What's New in v1.6 - Semantic Intelligence
+## 🌟 What's New in v1.11 - Enhanced Language Support
 
-🧠 **Automatic Semantic Tags** - Extracts tags from code automatically: `StripeService.php` → `["stripe", "service", "payment"]`
+🐍 **Python Integration** - Full support for Python code indexing and semantic search with proper function/class detection
 
-🎯 **Intention-Based Search** - Maps natural language queries to specific code: `"how to create stripe session"` → instant result
+🧠 **Improved Semantic Tags** - Enhanced automatic tag extraction across all supported languages: `StripeService.php` → `["stripe", "service", "payment"]`
 
-📈 **Adaptive Learning** - Learns from successful searches (>80% similarity) and provides instant responses for similar queries
+🎯 **Better Intention-Based Search** - Refined natural language query mapping: `"how to create stripe session"` → instant result
+
+📈 **Enhanced Adaptive Learning** - Improved learning from successful searches (>80% similarity) with better pattern recognition
 
 🏷️ **@pampa-comments** - Optional JSDoc-style comments for enhanced semantic understanding (complementary, not required)
 
-💡 **Hybrid Search System** - Combines intention cache + vector search + semantic boosting for maximum precision
+💡 **Robust Hybrid Search System** - Combines intention cache + vector search + semantic boosting for maximum precision
+
+🔧 **MCP Server Stability** - Fixed package.json path resolution issues for better MCP server reliability
 
 **Performance improvements:**
 

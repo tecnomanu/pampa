@@ -1,0 +1,90 @@
+---
+globs: README.md,README_es.md
+description: Regla para mantener los archivos README en inglés y español sincronizados
+---
+
+# README Synchronization Rule
+
+## Purpose
+This rule ensures that both [README.md](mdc:README.md) and [README_es.md](mdc:README_es.md) files are kept synchronized with the same content, only in their respective languages.
+
+## Requirements
+
+### Content Parity
+- Both README files must have identical structure and sections
+- All features, version numbers, and technical information must be the same
+- Only the language should differ between the files
+
+### Version Consistency
+- Version numbers in headers must match exactly
+- Feature lists and "What's New" sections must have equivalent content
+- All technical specifications must be identical
+
+### Structure Matching
+- Section headers must correspond (e.g., "🌟 What's New" ↔ "🌟 Novedades")
+- Table of contents must have equivalent entries
+- Code examples and commands should be identical
+- Links and references must point to the same resources
+
+### Language Guidelines
+- README.md: English content
+- README_es.md: Spanish content
+- Technical terms may remain in English when appropriate (e.g., "MCP", "Node.js")
+- Commands and code blocks should remain identical
+
+## When Making Changes
+
+### To English README (README.md):
+1. Make your changes to the English version first
+2. Immediately update the Spanish version (README_es.md) with equivalent content
+3. Ensure version numbers and technical details match exactly
+
+### To Spanish README (README_es.md):
+1. If changes are made to Spanish version, ensure English version is updated
+2. Maintain consistency in technical information
+3. Keep the same structure and organization
+
+### Version Updates:
+- Always update version numbers in both files simultaneously
+- Feature announcements must be translated and included in both versions
+- Performance metrics and technical specifications must match
+
+## Quality Checklist
+Before committing changes to either README:
+
+- [ ] Version numbers match in both files
+- [ ] "What's New" sections have equivalent content
+- [ ] Table of contents corresponds between languages
+- [ ] All technical specifications are identical
+- [ ] Code examples and commands are the same
+- [ ] Links and references work in both versions
+- [ ] Structure and organization match
+- [ ] Both files are complete and well-formatted
+
+## Examples of Synchronized Content
+
+### Version Headers
+```markdown
+# English
+**Version 1.11.x** · **Semantic Search** · **MCP Compatible** · **Node.js**
+
+# Spanish
+**Versión 1.11.x** · **Búsqueda Semántica** · **Compatible con MCP** · **Node.js**
+```
+
+### Feature Announcements
+```markdown
+# English
+🐍 **Python Integration** - Full support for Python code indexing and semantic search
+
+# Spanish  
+🐍 **Integración de Python** - Soporte completo para indexado de código Python y búsqueda semántica
+```
+
+### Technical Commands
+```bash
+# Both versions should have identical commands
+npx pampa index --provider transformers
+```
+
+This rule helps maintain professional documentation standards and ensures users get consistent information regardless of their language preference.

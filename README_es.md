@@ -1,6 +1,6 @@
 # PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto
 
-**Versión 1.5.0** · **Compatible con MCP** · **Node.js**
+**Versión 1.11.x** · **Búsqueda Semántica** · **Compatible con MCP** · **Node.js**
 
 <p align="center">
   <img src="assets/pampa_banner.jpg" alt="Agent Rules Kit Logo" width="729" />
@@ -14,9 +14,31 @@
   <img src="https://img.shields.io/github/actions/workflow/status/tecnomanu/pampa/CI" alt="Build Status" />
 </p>
 
-Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – en un comando `npx`.
+Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualquier base de código – con **búsqueda semántica inteligente** y **aprendizaje automático** – en un comando `npx`.
 
 > 🇪🇸 **Versión en Español** | 🇺🇸 **[English Version](README.md)** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
+
+## 🌟 Novedades en v1.11 - Soporte de Lenguajes Mejorado
+
+🐍 **Integración de Python** - Soporte completo para indexado de código Python y búsqueda semántica con detección adecuada de funciones/clases
+
+🧠 **Etiquetas Semánticas Mejoradas** - Extracción automática de etiquetas mejorada en todos los lenguajes soportados: `StripeService.php` → `["stripe", "service", "payment"]`
+
+🎯 **Búsqueda Basada en Intenciones Mejorada** - Mapeo refinado de consultas en lenguaje natural: `"cómo crear sesión de stripe"` → resultado instantáneo
+
+📈 **Aprendizaje Adaptativo Mejorado** - Aprendizaje mejorado de búsquedas exitosas (>80% similitud) con mejor reconocimiento de patrones
+
+🏷️ **@pampa-comments** - Comentarios opcionales estilo JSDoc para mejor comprensión semántica (complementario, no requerido)
+
+💡 **Sistema de Búsqueda Híbrido Robusto** - Combina caché de intenciones + búsqueda vectorial + potenciación semántica para máxima precisión
+
+🔧 **Estabilidad del Servidor MCP** - Corregidos problemas de resolución de ruta de package.json para mejor confiabilidad del servidor MCP
+
+**Mejoras de rendimiento:**
+
+-   **+32% a +85%** mejor precisión de búsqueda
+-   Respuestas instantáneas para patrones aprendidos
+-   Puntuaciones perfectas (1.0) cuando la intención coincide exactamente
 
 ## 🌟 ¿Por qué PAMPA?
 
