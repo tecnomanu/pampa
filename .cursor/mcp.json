@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+      "pampa-local": {
+        "command": "/bin/zsh",
+        "args": [
+          "-lc",
+          "/Users/manu/.nvm/versions/node/v20.19.2/bin/node src/mcp-server.js"
+        ]
+      }
+    }
+  }     
