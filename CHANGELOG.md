@@ -1,3 +1,10 @@
+## [1.11.2](https://github.com/tecnomanu/pampa/compare/v1.11.1...v1.11.2) (2025-09-14)
+
+
+### Bug Fixes
+
+* **mcp:** 🐛 correct package.json path in MCP server ([f95cc7f](https://github.com/tecnomanu/pampa/commit/f95cc7fe41619d08c2fd8665ad42fac3ba0b36e9))
+
 ## [1.11.1](https://github.com/tecnomanu/pampa/compare/v1.11.0...v1.11.1) (2025-09-11)
 
 
