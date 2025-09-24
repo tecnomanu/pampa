@@ -23,6 +23,16 @@ export class EmbeddingProvider {
     }
 }
 
+let testProviderFactory = null;
+
+export function __setTestProviderFactory(factory) {
+    testProviderFactory = typeof factory === 'function' ? factory : null;
+}
+
+export function __resetTestProviderFactory() {
+    testProviderFactory = null;
+}
+
 // ============================================================================
 // OPENAI PROVIDER
 // ============================================================================
@@ -192,6 +202,10 @@ export class CohereProvider extends EmbeddingProvider {
 // ============================================================================
 
 export function createEmbeddingProvider(providerName = 'auto') {
+    if (typeof testProviderFactory === 'function') {
+        return testProviderFactory(providerName);
+    }
+
     switch (providerName.toLowerCase()) {
         case 'openai':
             return new OpenAIProvider();

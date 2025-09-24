@@ -55,11 +55,12 @@ You have access to PAMPA, a code memory system that indexes and allows semantic 
 
 ## Available Tools
 
--   `search_code(query, limit, path)` - Search code semantically
+-   `search_code(query, limit, path, filters...)` - 🆕 Advanced semantic search with scoping
 -   `get_code_chunk(sha, path)` - Get complete code of a chunk
 -   `index_project(path, provider)` - Index project for the first time
 -   `update_project(path, provider)` - Update index after changes
 -   `get_project_stats(path)` - Get project statistics
+-   `use_context_pack(name, path)` - 🆕 Activate predefined search scopes
 
 ## Strategy
 
@@ -144,14 +145,28 @@ graph TD
 
 ## 🔧 Available MCP Tools Reference
 
-### `search_code(query, limit=10, path=".")`
+### `search_code(query, limit=10, path=".", ...filters)`
 
-**Purpose**: Semantic search through indexed code
+**Purpose**: Advanced semantic search with scoping and hybrid ranking
+
+**Basic Parameters:**
 
 -   `query`: Natural language description ("user validation", "error handling")
 -   `limit`: Number of results (default: 10)
 -   `path`: Project root directory (usually current directory)
--   **Returns**: Array of {file, symbol, line, similarity, sha}
+
+**🆕 NEW: Advanced Filtering & Ranking:**
+
+-   `path_glob`: Filter by file patterns (e.g., "app/Services/**", "src/components/**")
+-   `tags`: Filter by semantic tags (e.g., ["stripe", "payment"])
+-   `lang`: Filter by languages (e.g., ["php", "typescript"])
+-   `provider`: Override embedding provider ("auto", "openai", "transformers")
+-   `hybrid`: Enable hybrid search ("on", "off") - combines semantic + keyword
+-   `bm25`: Enable BM25 keyword search ("on", "off")
+-   `reranker`: Use cross-encoder reranker ("off", "transformers")
+-   `symbol_boost`: Enable symbol-aware ranking ("on", "off")
+
+**Returns**: Array of {file, symbol, line, similarity, sha, meta}
 
 ### `get_code_chunk(sha, path=".")`
 
@@ -183,6 +198,15 @@ graph TD
 
 -   `path`: Directory to analyze
 -   **Returns**: File counts, languages, function statistics
+
+### `use_context_pack(name, path=".")` 🆕
+
+**Purpose**: Activate predefined search scopes and filters
+
+-   `name`: Context pack name (e.g., "stripe-backend", "react-components")
+-   `path`: Project root directory
+-   **Effect**: Sets default filters for subsequent `search_code` calls
+-   **Use case**: Focus searches on specific domains or technologies
 
 ## 📊 Interpreting Results
 
@@ -249,6 +273,19 @@ graph TD
 
 🔍 "Look for validation patterns"
 → search_code("validation pattern schema")
+
+🆕 "Focus search on specific directories"
+→ search_code("payment processing", path_glob=["app/Services/**"])
+
+🆕 "Search only backend PHP code"
+→ search_code("user authentication", lang=["php"])
+
+🆕 "Use context packs for domain focus"
+→ use_context_pack("stripe-backend")
+→ search_code("create payment session")  // Now scoped to Stripe backend
+
+🆕 "Get better results with hybrid search"
+→ search_code("checkout flow", hybrid="on", reranker="transformers")
 ```
 
 ### After Coding
@@ -272,6 +309,9 @@ graph TD
 -   ✅ **Search before creating** any new function
 -   ✅ **Update after changes** with `update_project()`
 -   ✅ **Use semantic queries** not exact function names
+-   🆕 ✅ **Use scoped searches** for better precision: `path_glob`, `lang`, `tags`
+-   🆕 ✅ **Leverage context packs** for domain-specific work
+-   🆕 ✅ **Enable hybrid search** for better recall (default in v1.12+)
 
 ### NEVER DO THIS:
 
@@ -279,6 +319,8 @@ graph TD
 -   ❌ **Forget to update** after making changes
 -   ❌ **Search with exact code** instead of descriptions
 -   ❌ **Ignore existing implementations** that could be extended
+-   🆕 ❌ **Search entire codebase** when you can scope to relevant areas
+-   🆕 ❌ **Ignore context packs** that match your current task domain
 
 ## 🎉 Success Stories
 
@@ -291,11 +333,60 @@ graph TD
 **Before PAMPA**: "Where's the database connection code?"
 **With PAMPA**: "search_code('database connection') → Found in 2 seconds"
 
+## 🆕 New in v1.12: Advanced Features
+
+### 🎯 Scoped Search Examples
+
+```javascript
+// Search only in service layer
+search_code('payment processing', { path_glob: ['app/Services/**'] });
+
+// Search PHP backend only
+search_code('user authentication', { lang: ['php'] });
+
+// Search with tags
+search_code('create session', { tags: ['stripe', 'payment'] });
+
+// Combine multiple scopes
+search_code('validation', {
+	path_glob: ['app/Http/**'],
+	lang: ['php'],
+	tags: ['api'],
+});
+```
+
+### 🔄 Hybrid Search Benefits
+
+-   **Better recall**: Finds functions even with different terminology
+-   **Keyword + semantic**: Combines exact matches with meaning-based search
+-   **Default enabled**: No configuration needed in v1.12+
+
+### 📦 Context Packs Workflow
+
+```javascript
+// 1. Activate domain-specific context
+use_context_pack('stripe-backend');
+
+// 2. All searches now automatically scoped
+search_code('create payment'); // → Only Stripe backend results
+search_code('handle webhook'); // → Only Stripe webhook handlers
+search_code('refund transaction'); // → Only Stripe refund logic
+```
+
+### ⚡ Performance Tips
+
+-   **Use scoped searches** for faster, more relevant results
+-   **Enable file watching** (`pampa watch`) for real-time updates
+-   **Use reranker** for critical searches: `reranker: "transformers"`
+-   **Leverage symbol boost** for function-specific searches
+
 ## 🔗 Additional Resources
 
 -   **Human-readable docs**: [README.md](README.md)
 -   **Spanish docs**: [README_es.md](README_es.md)
 -   **MCP rule file**: [RULE_FOR_PAMPA_MCP.md](RULE_FOR_PAMPA_MCP.md)
+-   **🆕 Migration guide**: [MIGRATION_GUIDE_v1.12.md](MIGRATION_GUIDE_v1.12.md)
+-   **🆕 Multi-project demo**: [DEMO_MULTI_PROJECT.md](DEMO_MULTI_PROJECT.md)
 -   **Project repository**: https://github.com/tecnomanu/pampa
 
 ## 🚨 Troubleshooting for AI Agents

@@ -9,13 +9,17 @@
 import * as service from './service.js';
 
 // Re-export service functions with presentation layer
-export async function indexProject({ repoPath = '.', provider = 'auto' }) {
+export async function indexProject({ repoPath = '.', provider = 'auto', encrypt = undefined }) {
     console.log('Starting project indexing...');
     console.log(`Provider: ${provider}`);
+    if (typeof encrypt === 'string') {
+        console.log(`Encryption: ${encrypt}`);
+    }
 
     const result = await service.indexProject({
         repoPath,
         provider,
+        encryptMode: encrypt,
         onProgress: ({ type, file, symbol }) => {
             // Silent progress - could add verbose mode here
         }

@@ -58,6 +58,102 @@ run_test "test-search-code.js" "Search Code Validation Test"
 # Run database error handling test  
 run_test "test-database-errors.js" "Database Error Handling Test"
 
+echo -e "${YELLOW}Running Scoped Search Filters Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/search_scoped.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Scoped Search Filters Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Scoped Search Filters Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Hybrid Search Fusion Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/search_hybrid.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Hybrid Search Fusion Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Hybrid Search Fusion Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Cross-Encoder Reranker Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/reranker.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Cross-Encoder Reranker Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Cross-Encoder Reranker Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Symbol Boost Ranking Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/symbol_boost.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Symbol Boost Ranking Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Symbol Boost Ranking Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Watcher & Merkle Incremental Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/watch_merkle.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Watcher & Merkle Incremental Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Watcher & Merkle Incremental Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Context Packs Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/context_packs.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Context Packs Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Context Packs Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Codemap Extension Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/codemap_extension.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Codemap Extension Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Codemap Extension Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
+echo -e "${YELLOW}Running Chunk Encryption Test...${NC}"
+if TEST_OUTPUT=$(node --test "$TEST_DIR/encryption.test.js" 2>&1); then
+    echo -e "${GREEN}✅ PASS${NC} Chunk Encryption Test"
+    ((TESTS_PASSED++))
+else
+    echo -e "${RED}❌ FAIL${NC} Chunk Encryption Test"
+    echo "   Error details:"
+    echo "$TEST_OUTPUT" | head -5 | sed 's/^/   /'
+    ((TESTS_FAILED++))
+fi
+echo ""
+
 # Summary
 echo "========================================="
 echo -e "${GREEN}Tests passed: $TESTS_PASSED${NC}"

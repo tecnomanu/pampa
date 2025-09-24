@@ -20,67 +20,134 @@ import LangPython from 'tree-sitter-python';
 import LangTSX from 'tree-sitter-typescript/bindings/node/tsx.js';
 import LangTS from 'tree-sitter-typescript/bindings/node/typescript.js';
 import { promisify } from 'util';
-import zlib from 'zlib';
 import { createEmbeddingProvider } from './providers.js';
+import { readCodemap, writeCodemap } from './codemap/io.js';
+import { normalizeChunkMetadata } from './codemap/types.js';
+import { applyScope, normalizeScopeFilters } from './search/applyScope.js';
+import { BM25Index } from './search/bm25Index.js';
+import { reciprocalRankFusion } from './search/hybrid.js';
+import { rerankCrossEncoder } from './ranking/crossEncoderReranker.js';
+import { applySymbolBoost } from './ranking/boostSymbols.js';
+import { hasScopeFilters } from './types/search.js';
+import {
+    cloneMerkle,
+    computeFastHash,
+    loadMerkle,
+    normalizeToProjectPath,
+    removeMerkleEntry,
+    saveMerkle
+} from './indexer/merkle.js';
+import { extractSymbolMetadata } from './symbols/extract.js';
+import { attachSymbolGraphToCodemap } from './symbols/graph.js';
+import {
+    resolveEncryptionPreference,
+    writeChunkToDisk,
+    readChunkFromDisk,
+    removeChunkArtifacts
+} from './storage/encryptedChunks.js';
+
+function resolveTreeSitterLanguage(module, preferredKey = null) {
+    if (!module) {
+        return null;
+    }
+
+    if (module.default) {
+        return resolveTreeSitterLanguage(module.default, preferredKey);
+    }
+
+    if (preferredKey && module[preferredKey]) {
+        return resolveTreeSitterLanguage(module[preferredKey], null);
+    }
+
+    if (typeof module === 'object' && module !== null) {
+        if (module.language && typeof module.language === 'object') {
+            return module;
+        }
+
+        const values = Object.values(module);
+        for (const value of values) {
+            const resolved = resolveTreeSitterLanguage(value, null);
+            if (resolved && resolved.language && typeof resolved.language === 'object') {
+                return resolved;
+            }
+        }
+    }
+
+    return module;
+}
+
+const RESOLVED_LANGUAGES = {
+    php: resolveTreeSitterLanguage(LangPHP, 'php'),
+    python: resolveTreeSitterLanguage(LangPython),
+    javascript: resolveTreeSitterLanguage(LangJS, 'javascript'),
+    typescript: resolveTreeSitterLanguage(LangTS),
+    tsx: resolveTreeSitterLanguage(LangTSX),
+    go: resolveTreeSitterLanguage(LangGo),
+    java: resolveTreeSitterLanguage(LangJava)
+};
 
 const LANG_RULES = {
     '.php': {
         lang: 'php',
-        ts: LangPHP,
+        ts: RESOLVED_LANGUAGES.php,
         nodeTypes: ['function_definition', 'method_declaration'],
         variableTypes: ['const_declaration', 'assignment_expression'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     },
     '.py': {
         lang: 'python',
-        ts: LangPython,
+        ts: RESOLVED_LANGUAGES.python,
         nodeTypes: ['function_definition', 'class_definition'],
         variableTypes: ['assignment', 'expression_statement'],
         commentPattern: /"""[\s\S]*?"""|'''[\s\S]*?'''/g
     },
     '.js': {
         lang: 'javascript',
-        ts: LangJS,
+        ts: RESOLVED_LANGUAGES.javascript,
         nodeTypes: ['function_declaration', 'method_definition', 'class_declaration'],
         variableTypes: ['const_declaration', 'let_declaration', 'variable_declaration'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     },
     '.jsx': {
         lang: 'tsx',
-        ts: LangTSX,
+        ts: RESOLVED_LANGUAGES.tsx,
         nodeTypes: ['function_declaration', 'class_declaration'],
         variableTypes: ['const_declaration', 'let_declaration', 'variable_declaration'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     },
     '.ts': {
         lang: 'typescript',
-        ts: LangTS,
+        ts: RESOLVED_LANGUAGES.typescript,
         nodeTypes: ['function_declaration', 'method_definition', 'class_declaration'],
         variableTypes: ['const_declaration', 'let_declaration', 'variable_declaration'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     },
     '.tsx': {
         lang: 'tsx',
-        ts: LangTSX,
+        ts: RESOLVED_LANGUAGES.tsx,
         nodeTypes: ['function_declaration', 'class_declaration'],
         variableTypes: ['const_declaration', 'let_declaration', 'variable_declaration'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     },
     '.go': {
         lang: 'go',
-        ts: LangGo,
+        ts: RESOLVED_LANGUAGES.go,
         nodeTypes: ['function_declaration', 'method_declaration'],
         variableTypes: ['const_declaration', 'var_declaration'],
         commentPattern: /\/\*[\s\S]*?\*\//g
     },
     '.java': {
         lang: 'java',
-        ts: LangJava,
+        ts: RESOLVED_LANGUAGES.java,
         nodeTypes: ['method_declaration', 'class_declaration'],
         variableTypes: ['variable_declaration', 'field_declaration'],
         commentPattern: /\/\*\*[\s\S]*?\*\//g
     }
 };
+
+export function getSupportedLanguageExtensions() {
+    return Object.keys(LANG_RULES);
+}
 
 // Global context for paths - gets set by setBasePath()
 let globalContext = {
@@ -90,9 +157,20 @@ let globalContext = {
     dbPath: null
 };
 
+const bm25IndexCache = new Map();
+const chunkTextCache = new Map();
+
+const envRerankMax = Number.parseInt(process.env.PAMPA_RERANKER_MAX || '50', 10);
+const RERANKER_MAX_CANDIDATES = Number.isFinite(envRerankMax) && envRerankMax > 0 ? envRerankMax : 50;
+const RERANKER_SCORE_HINT_REGEX = /mockScore:([+-]?\d+(?:\.\d+)?)/i;
+
 // Function to set the base path for all operations
 export function setBasePath(basePath = '.') {
     const resolvedPath = path.resolve(basePath);
+    if (globalContext.basePath && globalContext.basePath !== resolvedPath) {
+        bm25IndexCache.clear();
+        chunkTextCache.clear();
+    }
     globalContext.basePath = resolvedPath;
     globalContext.chunkDir = path.join(resolvedPath, '.pampa/chunks');
     globalContext.codemap = path.join(resolvedPath, 'pampa.codemap.json');
@@ -117,6 +195,126 @@ function getPaths() {
     };
 }
 
+function getResolvedBasePath() {
+    return globalContext.basePath ? globalContext.basePath : path.resolve('.');
+}
+
+function getBm25CacheKey(providerName, dimensions) {
+    return `${getResolvedBasePath()}::${providerName || 'unknown'}::${dimensions || 0}`;
+}
+
+function getChunkCacheKey(sha) {
+    return `${getResolvedBasePath()}::${sha}`;
+}
+
+function getOrCreateBm25Entry(providerName, dimensions) {
+    const key = getBm25CacheKey(providerName, dimensions);
+    let entry = bm25IndexCache.get(key);
+    if (!entry) {
+        entry = { index: new BM25Index(), added: new Set() };
+        bm25IndexCache.set(key, entry);
+    }
+
+    return entry;
+}
+
+function readChunkTextCached(sha) {
+    if (!sha) {
+        return null;
+    }
+
+    const cacheKey = getChunkCacheKey(sha);
+    if (chunkTextCache.has(cacheKey)) {
+        return chunkTextCache.get(cacheKey);
+    }
+
+    const { chunkDir } = getPaths();
+
+    try {
+        const result = readChunkFromDisk({ chunkDir, sha });
+        const code = result ? result.code : null;
+        chunkTextCache.set(cacheKey, code);
+        return code;
+    } catch (error) {
+        chunkTextCache.set(cacheKey, null);
+        return null;
+    }
+}
+
+function buildBm25Document(chunk, codeText) {
+    if (!chunk) {
+        return '';
+    }
+
+    const parts = [
+        chunk.symbol,
+        chunk.file_path,
+        chunk.pampa_description,
+        chunk.pampa_intent,
+        codeText
+    ].filter(value => typeof value === 'string' && value.trim().length > 0);
+
+    return parts.join('\n');
+}
+
+function buildRerankerDocument(candidate) {
+    if (!candidate) {
+        return '';
+    }
+
+    const codeText = readChunkTextCached(candidate.sha) || '';
+    return buildBm25Document(candidate, codeText);
+}
+
+function extractRerankerScoreHint(candidate) {
+    if (!candidate) {
+        return undefined;
+    }
+
+    const description = typeof candidate.pampa_description === 'string' ? candidate.pampa_description : '';
+    const match = description.match(RERANKER_SCORE_HINT_REGEX);
+
+    if (match) {
+        const value = Number.parseFloat(match[1]);
+        if (Number.isFinite(value)) {
+            return value;
+        }
+    }
+
+    return undefined;
+}
+
+function ensureBm25IndexForChunks(providerName, dimensions, chunks) {
+    if (!Array.isArray(chunks) || chunks.length === 0) {
+        return null;
+    }
+
+    const entry = getOrCreateBm25Entry(providerName, dimensions);
+    const toAdd = [];
+
+    for (const chunk of chunks) {
+        if (!chunk || !chunk.id || entry.added.has(chunk.id)) {
+            continue;
+        }
+
+        const codeText = readChunkTextCached(chunk.sha);
+        const docText = buildBm25Document(chunk, codeText);
+
+        if (docText && docText.trim().length > 0) {
+            toAdd.push({ id: chunk.id, text: docText });
+        }
+
+        entry.added.add(chunk.id);
+    }
+
+    if (toAdd.length > 0) {
+        entry.index.addDocuments(toAdd);
+    }
+
+    entry.index.consolidate();
+    return entry.index;
+}
+
 // Function to clear the global context (useful for testing or cleanup)
 export function clearBasePath() {
     globalContext = {
@@ -125,6 +323,8 @@ export function clearBasePath() {
         codemap: null,
         dbPath: null
     };
+    bm25IndexCache.clear();
+    chunkTextCache.clear();
 }
 
 // ============================================================================
@@ -473,7 +673,15 @@ function generateEnhancedEmbeddingText(code, metadata, variables, docComments) {
 // MAIN SERVICE FUNCTIONS
 // ============================================================================
 
-export async function indexProject({ repoPath = '.', provider = 'auto', onProgress = null }) {
+export async function indexProject({
+    repoPath = '.',
+    provider = 'auto',
+    onProgress = null,
+    changedFiles = null,
+    deletedFiles = [],
+    embeddingProviderOverride = null,
+    encryptMode = undefined
+} = {}) {
     const repo = path.resolve(repoPath);
 
     // Ensure we're working in a valid directory and add more restrictive patterns
@@ -481,36 +689,80 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
         throw new Error(`Directory ${repo} does not exist`);
     }
 
-    // More restrictive patterns to avoid system directories
-    const pattern = Object.keys(LANG_RULES).map(ext => `**/*${ext}`);
-    const files = await fg(pattern, {
-        cwd: repo,
-        absolute: false, // Use relative paths only
-        followSymbolicLinks: false, // Don't follow symlinks to avoid system dirs
-        ignore: [
-            '**/vendor/**',
-            '**/node_modules/**',
-            '**/.git/**',
-            '**/storage/**',
-            '**/dist/**',
-            '**/build/**',
-            '**/tmp/**',
-            '**/temp/**',
-            '**/.npm/**',
-            '**/.yarn/**',
-            '**/Library/**', // Explicitly ignore Library directories
-            '**/System/**', // Explicitly ignore System directories
-            '**/.Trash/**'
-        ],
-        onlyFiles: true, // Only return files, not directories
-        dot: false // Don't include hidden files
-    });
+    const normalizedChanged = Array.isArray(changedFiles)
+        ? Array.from(new Set(
+            changedFiles
+                .map(file => normalizeToProjectPath(repo, file))
+                .filter(Boolean)
+        ))
+        : null;
+
+    const normalizedDeleted = Array.from(new Set(
+        (Array.isArray(deletedFiles) ? deletedFiles : [])
+            .map(file => normalizeToProjectPath(repo, file))
+            .filter(Boolean)
+    ));
+
+    const deletedSet = new Set(normalizedDeleted);
+    const languagePatterns = getSupportedLanguageExtensions().map(ext => `**/*${ext}`);
+    let files = [];
+
+    if (normalizedChanged === null) {
+        files = await fg(languagePatterns, {
+            cwd: repo,
+            absolute: false,
+            followSymbolicLinks: false,
+            ignore: [
+                '**/vendor/**',
+                '**/node_modules/**',
+                '**/.git/**',
+                '**/storage/**',
+                '**/dist/**',
+                '**/build/**',
+                '**/tmp/**',
+                '**/temp/**',
+                '**/.npm/**',
+                '**/.yarn/**',
+                '**/Library/**',
+                '**/System/**',
+                '**/.Trash/**'
+            ],
+            onlyFiles: true,
+            dot: false
+        });
+    } else {
+        files = normalizedChanged.filter(rel => {
+            const ext = path.extname(rel).toLowerCase();
+            return !!LANG_RULES[ext];
+        });
+    }
+
+    const uniqueFiles = [];
+    const seenFiles = new Set();
+
+    for (const rel of files) {
+        if (!rel || seenFiles.has(rel)) {
+            continue;
+        }
+
+        const absPath = path.join(repo, rel);
+        if (!fs.existsSync(absPath)) {
+            deletedSet.add(rel);
+            continue;
+        }
+
+        seenFiles.add(rel);
+        uniqueFiles.push(rel);
+    }
+
+    files = uniqueFiles;
+    const isPartialUpdate = normalizedChanged !== null;
 
     // Create embedding provider ONCE ONLY
-    const embeddingProvider = createEmbeddingProvider(provider);
+    const embeddingProvider = embeddingProviderOverride || createEmbeddingProvider(provider);
 
-    // Initialize provider ONCE ONLY
-    if (embeddingProvider.init) {
+    // Initialize provider ONCE ONLY (if we created it here)
+    if (!embeddingProviderOverride && embeddingProvider.init) {
         await embeddingProvider.init();
     }
 
@@ -518,23 +770,168 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
     await initDatabase(embeddingProvider.getDimensions(), repo);
 
     const { codemap: codemapPath, chunkDir, dbPath } = getPaths();
-    const codemap = fs.existsSync(codemapPath) ?
-        JSON.parse(fs.readFileSync(codemapPath)) : {};
+    const encryptionPreference = resolveEncryptionPreference({ mode: encryptMode, logger: console });
+    let codemap = readCodemap(codemapPath);
+
+    const merkle = loadMerkle(repo);
+    const updatedMerkle = cloneMerkle(merkle);
+    let merkleDirty = false;
+    let indexMutated = false;
 
     const parser = new Parser();
     let processedChunks = 0;
     const errors = [];
 
+    async function deleteChunks(chunkIds, metadataLookup = new Map()) {
+        if (!Array.isArray(chunkIds) || chunkIds.length === 0) {
+            return;
+        }
+
+        const db = new sqlite3.Database(dbPath);
+        const run = promisify(db.run.bind(db));
+        const placeholders = chunkIds.map(() => '?').join(', ');
+
+        await run(`
+            DELETE FROM code_chunks
+            WHERE id IN (${placeholders})
+        `, chunkIds);
+
+        db.close();
+
+        for (const chunkId of chunkIds) {
+            const metadata = metadataLookup.get(chunkId) || codemap[chunkId];
+            if (metadata && metadata.sha) {
+                chunkTextCache.delete(getChunkCacheKey(metadata.sha));
+                removeChunkArtifacts(chunkDir, metadata.sha);
+            }
+            delete codemap[chunkId];
+        }
+    }
+
+    async function embedAndStore({
+        code,
+        enhancedEmbeddingText,
+        chunkId,
+        sha,
+        lang,
+        rel,
+        symbol,
+        chunkType,
+        pampaMetadata,
+        importantVariables,
+        docComments,
+        contextInfo,
+        symbolData = null
+    }) {
+        try {
+            const embedding = await embeddingProvider.generateEmbedding(enhancedEmbeddingText);
+
+            const db = new sqlite3.Database(dbPath);
+            const run = promisify(db.run.bind(db));
+
+            await run(`
+                INSERT OR REPLACE INTO code_chunks
+                (id, file_path, symbol, sha, lang, chunk_type, embedding, embedding_provider, embedding_dimensions,
+                 pampa_tags, pampa_intent, pampa_description, doc_comments, variables_used, context_info, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `, [
+                chunkId,
+                rel,
+                symbol,
+                sha,
+                lang,
+                chunkType,
+                Buffer.from(JSON.stringify(embedding)),
+                embeddingProvider.getName(),
+                embeddingProvider.getDimensions(),
+                JSON.stringify(pampaMetadata.tags),
+                pampaMetadata.intent,
+                pampaMetadata.description,
+                docComments,
+                JSON.stringify(importantVariables),
+                JSON.stringify(contextInfo)
+            ]);
+
+            indexMutated = true;
+
+            db.close();
+
+            fs.mkdirSync(chunkDir, { recursive: true });
+            const writeResult = writeChunkToDisk({
+                chunkDir,
+                sha,
+                code,
+                encryption: encryptionPreference
+            });
+
+            const previousMetadata = codemap[chunkId];
+            codemap[chunkId] = normalizeChunkMetadata({
+                file: rel,
+                symbol,
+                sha,
+                lang,
+                chunkType,
+                provider: embeddingProvider.getName(),
+                dimensions: embeddingProvider.getDimensions(),
+                hasPampaTags: Array.isArray(pampaMetadata.tags) && pampaMetadata.tags.length > 0,
+                hasIntent: !!pampaMetadata.intent,
+                hasDocumentation: !!docComments,
+                variableCount: Array.isArray(importantVariables) ? importantVariables.length : 0,
+                encrypted: !!(writeResult && writeResult.encrypted),
+                symbol_signature: symbolData && symbolData.signature ? symbolData.signature : undefined,
+                symbol_parameters: symbolData && Array.isArray(symbolData.parameters) ? symbolData.parameters : undefined,
+                symbol_return: symbolData && symbolData.returnType ? symbolData.returnType : undefined,
+                symbol_calls: symbolData && Array.isArray(symbolData.calls) ? symbolData.calls : undefined
+            }, previousMetadata);
+
+        } catch (error) {
+            errors.push({ type: 'indexing_error', chunkId, error: error.message });
+            throw error;
+        }
+    }
+
+    async function removeFileArtifacts(fileRel) {
+        const entries = Object.entries(codemap)
+            .filter(([, metadata]) => metadata && metadata.file === fileRel);
+
+        if (entries.length > 0) {
+            const metadataLookup = new Map(entries);
+            await deleteChunks(entries.map(([chunkId]) => chunkId), metadataLookup);
+            indexMutated = true;
+        }
+
+        if (removeMerkleEntry(updatedMerkle, fileRel)) {
+            merkleDirty = true;
+        }
+    }
+
     for (const rel of files) {
+        deletedSet.delete(rel);
+
         const abs = path.join(repo, rel);
         const ext = path.extname(rel).toLowerCase();
         const rule = LANG_RULES[ext];
 
         if (!rule) continue;
 
+        const existingChunks = new Map(
+            Object.entries(codemap)
+                .filter(([, metadata]) => metadata && metadata.file === rel)
+        );
+        const staleChunkIds = new Set(existingChunks.keys());
+        const chunkMerkleHashes = [];
+        let fileHash = null;
+
         try {
-            parser.setLanguage(rule.ts);
             const source = fs.readFileSync(abs, 'utf8');
+            fileHash = await computeFastHash(source);
+
+            const previousMerkle = merkle[rel];
+            if (previousMerkle && previousMerkle.shaFile === fileHash) {
+                continue;
+            }
+
+            parser.setLanguage(rule.ts);
             const tree = parser.parse(source);
 
             async function walk(node) {
@@ -665,6 +1062,8 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                 // Extract important variables used in this code
                 const importantVariables = extractImportantVariables(node, source, rule);
 
+                const symbolData = extractSymbolMetadata({ node, source, symbol });
+
                 // Generate enhanced embedding text
                 const enhancedEmbeddingText = generateEnhancedEmbeddingText(
                     code,
@@ -689,10 +1088,13 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
 
                 const sha = crypto.createHash('sha1').update(code).digest('hex');
                 const chunkId = `${rel}:${symbol}:${sha.substring(0, 8)}`;
+                const chunkMerkleHash = await computeFastHash(code);
 
                 // Check if chunk already exists and hasn't changed
                 if (codemap[chunkId]?.sha === sha) {
-                    return; // No changes
+                    staleChunkIds.delete(chunkId);
+                    chunkMerkleHashes.push(chunkMerkleHash);
+                    return;
                 }
 
                 await embedAndStore({
@@ -707,8 +1109,11 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                     pampaMetadata,
                     importantVariables,
                     docComments,
-                    contextInfo
+                    contextInfo,
+                    symbolData
                 });
+                staleChunkIds.delete(chunkId);
+                chunkMerkleHashes.push(chunkMerkleHash);
                 processedChunks++;
 
                 // Progress callback
@@ -717,86 +1122,116 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
                 }
             }
 
-            async function embedAndStore({
-                code,
-                enhancedEmbeddingText,
-                chunkId,
-                sha,
-                lang,
-                rel,
-                symbol,
-                chunkType,
-                pampaMetadata,
-                importantVariables,
-                docComments,
-                contextInfo
-            }) {
-                try {
-                    // Generate embedding using enhanced text for better semantic understanding
-                    const embedding = await embeddingProvider.generateEmbedding(enhancedEmbeddingText);
+            await walk(tree.rootNode);
 
-                    // Save to database with enhanced metadata
-                    const db = new sqlite3.Database(dbPath);
-                    const run = promisify(db.run.bind(db));
-
-                    await run(`
-                        INSERT OR REPLACE INTO code_chunks 
-                        (id, file_path, symbol, sha, lang, chunk_type, embedding, embedding_provider, embedding_dimensions,
-                         pampa_tags, pampa_intent, pampa_description, doc_comments, variables_used, context_info, updated_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    `, [
-                        chunkId,
-                        rel,
-                        symbol,
-                        sha,
-                        lang,
-                        chunkType,
-                        Buffer.from(JSON.stringify(embedding)),
-                        embeddingProvider.getName(),
-                        embeddingProvider.getDimensions(),
-                        JSON.stringify(pampaMetadata.tags),
-                        pampaMetadata.intent,
-                        pampaMetadata.description,
-                        docComments,
-                        JSON.stringify(importantVariables),
-                        JSON.stringify(contextInfo)
-                    ]);
-
-                    db.close();
-
-                    // Save compressed chunk (original code, not enhanced text)
-                    fs.mkdirSync(chunkDir, { recursive: true });
-                    fs.writeFileSync(path.join(chunkDir, `${sha}.gz`), zlib.gzipSync(code));
-
-                    // Update codemap with enhanced metadata
-                    codemap[chunkId] = {
-                        file: rel,
-                        symbol,
-                        sha,
-                        lang,
-                        chunkType,
-                        provider: embeddingProvider.getName(),
-                        dimensions: embeddingProvider.getDimensions(),
-                        hasPampaTags: pampaMetadata.tags.length > 0,
-                        hasIntent: !!pampaMetadata.intent,
-                        hasDocumentation: !!docComments,
-                        variableCount: importantVariables.length
-                    };
-
-                } catch (error) {
-                    errors.push({ type: 'indexing_error', chunkId, error: error.message });
-                    throw error;
-                }
+            if (staleChunkIds.size > 0) {
+                await deleteChunks(Array.from(staleChunkIds), existingChunks);
+                indexMutated = true;
             }
 
-            await walk(tree.rootNode);
+            if (fileHash) {
+                updatedMerkle[rel] = {
+                    shaFile: fileHash,
+                    chunkShas: chunkMerkleHashes
+                };
+                merkleDirty = true;
+            }
         } catch (error) {
             errors.push({ type: 'processing_error', file: rel, error: error.message });
+
+            try {
+                const abs = path.join(repo, rel);
+                if (!fs.existsSync(abs)) {
+                    continue;
+                }
+
+                const source = fs.readFileSync(abs, 'utf8');
+                const fallbackSymbol = path.basename(rel) || rel;
+                const sha = crypto.createHash('sha1').update(source).digest('hex');
+                const chunkId = `${rel}:fallback:${sha.substring(0, 8)}`;
+                const chunkMerkleHash = await computeFastHash(source);
+                const fallbackMetadata = { tags: [], intent: null, description: null };
+                const contextInfo = {
+                    nodeType: 'file',
+                    startLine: 1,
+                    endLine: source.split('\n').length,
+                    codeLength: source.length,
+                    hasDocumentation: false,
+                    variableCount: 0
+                };
+
+                await embedAndStore({
+                    code: source,
+                    enhancedEmbeddingText: source,
+                    chunkId,
+                    sha,
+                    lang: rule.lang,
+                    rel,
+                    symbol: fallbackSymbol,
+                    chunkType: 'file',
+                    pampaMetadata: fallbackMetadata,
+                    importantVariables: [],
+                    docComments: null,
+                    contextInfo,
+                    symbolData: {
+                        signature: `${fallbackSymbol}()`,
+                        parameters: [],
+                        returnType: null,
+                        calls: []
+                    }
+                });
+
+                processedChunks++;
+                indexMutated = true;
+
+                if (onProgress) {
+                    onProgress({ type: 'chunk_processed', file: rel, symbol: fallbackSymbol, chunkId });
+                }
+
+                staleChunkIds.delete(chunkId);
+                if (staleChunkIds.size > 0) {
+                    await deleteChunks(Array.from(staleChunkIds), existingChunks);
+                    indexMutated = true;
+                }
+
+                chunkMerkleHashes.length = 0;
+                chunkMerkleHashes.push(chunkMerkleHash);
+                fileHash = chunkMerkleHash;
+                updatedMerkle[rel] = {
+                    shaFile: chunkMerkleHash,
+                    chunkShas: [...chunkMerkleHashes]
+                };
+                merkleDirty = true;
+            } catch (fallbackError) {
+                errors.push({ type: 'fallback_error', file: rel, error: fallbackError.message });
+            }
         }
     }
 
+    for (const fileRel of deletedSet) {
+        await removeFileArtifacts(fileRel);
+    }
+
+    if (!isPartialUpdate) {
+        const existingFilesSet = new Set(files);
+        for (const fileRel of Object.keys(merkle)) {
+            if (!existingFilesSet.has(fileRel)) {
+                await removeFileArtifacts(fileRel);
+            }
+        }
+    }
+
+    if (merkleDirty) {
+        saveMerkle(repo, updatedMerkle);
+    }
+
+    if (indexMutated) {
+        bm25IndexCache.clear();
+    }
+
     // Save updated codemap
-    fs.writeFileSync(codemapPath, JSON.stringify(codemap, null, 2));
+    attachSymbolGraphToCodemap(codemap);
+    codemap = writeCodemap(codemapPath, codemap);
 
     // Return structured result
     return {
@@ -808,7 +1243,7 @@ export async function indexProject({ repoPath = '.', provider = 'auto', onProgre
     };
 }
 
-export async function searchCode(query, limit = 10, provider = 'auto', workingPath = '.') {
+export async function searchCode(query, limit = 10, provider = 'auto', workingPath = '.', scopeOptions = {}) {
     // Set the base path for all operations
     setBasePath(workingPath);
 
@@ -816,33 +1251,42 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         return await getOverview(limit, workingPath);
     }
 
+    const normalizedScope = normalizeScopeFilters(scopeOptions);
+    const effectiveProvider = normalizedScope.provider || provider;
+    const hybridEnabled = normalizedScope.hybrid !== false;
+    const bm25Enabled = normalizedScope.bm25 !== false;
+    const symbolBoostEnabled = normalizedScope.symbol_boost !== false;
+
     // Create provider for query - we need this early for consistent provider reporting
-    const embeddingProvider = createEmbeddingProvider(provider);
+    const embeddingProvider = createEmbeddingProvider(effectiveProvider);
 
     try {
         // ===== PHASE 1: INTENTION-BASED SEARCH =====
         // First, try to find direct intention matches for instant results
-        const intentionResult = await searchByIntention(query, workingPath);
-
         let intentionResults = [];
+        let intentionResult = { success: false, directMatch: false };
 
-        if (intentionResult.success && intentionResult.directMatch) {
-            // Found a direct intention match! Get the chunk and add to results
-            const chunk = await getChunk(intentionResult.sha, workingPath);
+        if (symbolBoostEnabled) {
+            intentionResult = await searchByIntention(query, workingPath);
 
-            if (chunk.success) {
-                intentionResults = [{
-                    type: 'code',
-                    lang: intentionResult.lang,
-                    path: intentionResult.filePath,
-                    sha: intentionResult.sha,
-                    data: chunk.code,
-                    meta: {
-                        symbol: intentionResult.symbol,
-                        score: intentionResult.confidence,
-                        searchType: 'intention'
-                    }
-                }];
+            if (intentionResult.success && intentionResult.directMatch) {
+                // Found a direct intention match! Get the chunk and add to results
+                const chunk = await getChunk(intentionResult.sha, workingPath);
+
+                if (chunk.success) {
+                    intentionResults = [{
+                        type: 'code',
+                        lang: intentionResult.lang,
+                        path: intentionResult.filePath,
+                        sha: intentionResult.sha,
+                        data: chunk.code,
+                        meta: {
+                            symbol: intentionResult.symbol,
+                            score: intentionResult.confidence,
+                            searchType: 'intention'
+                        }
+                    }];
+                }
             }
         }
 
@@ -851,9 +1295,7 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         await recordQueryPattern(query, workingPath);
 
         // ===== PHASE 3: TRADITIONAL VECTOR SEARCH =====
-        const queryEmbedding = await embeddingProvider.generateEmbedding(query);
-
-        const { dbPath } = getPaths();
+        const { dbPath, codemap: codemapPath } = getPaths();
 
         // Check if database exists before trying to open it
         if (!fs.existsSync(dbPath)) {
@@ -863,6 +1305,10 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 message: `Database not found at ${dbPath}. Project needs to be indexed first.`,
                 suggestion: `Run index_project on directory: ${workingPath}`,
                 provider: embeddingProvider.getName(),
+                scope: normalizedScope,
+                hybrid: { enabled: hybridEnabled, bm25Enabled },
+                symbolBoost: { enabled: symbolBoostEnabled, boosted: false },
+                reranker: normalizedScope.reranker,
                 results: []
             };
         }
@@ -882,21 +1328,41 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
 
         db.close();
 
+        const codemapData = readCodemap(codemapPath);
+
         if (chunks.length === 0) {
             return {
                 success: false,
                 error: 'no_chunks_found',
                 message: `No indexed chunks found with ${embeddingProvider.getName()} in ${path.resolve(workingPath)}`,
-                suggestion: `Run: npx pampa index --provider ${provider} from ${path.resolve(workingPath)}`,
+                suggestion: `Run: npx pampa index --provider ${effectiveProvider} from ${path.resolve(workingPath)}`,
                 provider: embeddingProvider.getName(),
+                scope: normalizedScope,
+                hybrid: { enabled: hybridEnabled, bm25Enabled },
+                reranker: normalizedScope.reranker,
                 results: []
             };
         }
 
+        const scopedChunks = applyScope(chunks, normalizedScope);
+        const scopedShaSet = new Set(scopedChunks.map(chunk => chunk.sha));
+        const chunkIdBySha = new Map();
+        const scopedIntentionResults = hasScopeFilters(normalizedScope)
+            ? intentionResults.filter(result => scopedShaSet.has(result.sha))
+            : intentionResults;
+
         // ===== PHASE 4: ENHANCED SIMILARITY CALCULATION =====
-        const results = chunks.map(chunk => {
+        const chunkInfoById = new Map();
+        const results = [];
+
+        let queryEmbedding = null;
+        if (scopedChunks.length > 0) {
+            queryEmbedding = await embeddingProvider.generateEmbedding(query);
+        }
+
+        for (const chunk of scopedChunks) {
             const embedding = JSON.parse(chunk.embedding.toString());
-            const vectorSimilarity = cosineSimilarity(queryEmbedding, embedding);
+            const vectorSimilarity = queryEmbedding ? cosineSimilarity(queryEmbedding, embedding) : 0;
 
             // Boost score based on semantic metadata
             let boostScore = 0;
@@ -908,19 +1374,23 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
 
             // Boost if query matches pampa tags
             if (chunk.pampa_tags) {
-                const tags = JSON.parse(chunk.pampa_tags || '[]');
-                const queryLower = query.toLowerCase();
-                tags.forEach(tag => {
-                    if (queryLower.includes(tag.toLowerCase())) {
-                        boostScore += 0.1;
-                    }
-                });
+                try {
+                    const tags = JSON.parse(chunk.pampa_tags || '[]');
+                    const queryLower = query.toLowerCase();
+                    tags.forEach(tag => {
+                        if (typeof tag === 'string' && queryLower.includes(tag.toLowerCase())) {
+                            boostScore += 0.1;
+                        }
+                    });
+                } catch (error) {
+                    // ignore tag parsing errors for BM25 pipeline
+                }
             }
 
             // Final score combines vector similarity with semantic boosts
             const finalScore = Math.min(vectorSimilarity + boostScore, 1.0);
 
-            return {
+            const info = {
                 id: chunk.id,
                 file_path: chunk.file_path,
                 symbol: chunk.symbol,
@@ -933,38 +1403,191 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 vectorScore: vectorSimilarity,
                 boostScore: boostScore
             };
-        });
+
+            chunkInfoById.set(chunk.id, info);
+            chunkIdBySha.set(chunk.sha, chunk.id);
+            results.push(info);
+        }
 
         // ===== PHASE 5: PROGRESSIVE THRESHOLD SEARCH =====
-        // Instead of a fixed threshold, use progressive thresholds to fill up to the limit
+        if (symbolBoostEnabled) {
+            try {
+                applySymbolBoost(results, { query, codemap: codemapData });
+            } catch (error) {
+                // Symbol boost should fail softly without interrupting search
+            }
+        }
+
         const sortedResults = results.sort((a, b) => b.score - a.score);
 
         // Exclude intention results to avoid duplicates
-        const intentionShas = intentionResults.map(r => r.sha);
-        const filteredResults = sortedResults.filter(result => !intentionShas.includes(result.sha));
+        const intentionChunkIds = new Set(
+            scopedIntentionResults
+                .map(result => chunkIdBySha.get(result.sha))
+                .filter(Boolean)
+        );
+        const filteredResults = sortedResults.filter(result => !intentionChunkIds.has(result.id));
 
-        // Take up to (limit - intentionResults) to fill the remaining slots
-        const remainingSlots = limit - intentionResults.length;
-        const vectorResults = filteredResults.slice(0, remainingSlots);
+        const remainingSlots = Math.max(limit - scopedIntentionResults.length, 0);
+        let vectorResults = [];
+        let bm25Fused = false;
+        let bm25CandidateCount = 0;
+
+        if (remainingSlots > 0) {
+            const selectionBudget = Math.max(remainingSlots, 60);
+            const vectorPool = filteredResults.slice(0, selectionBudget);
+
+            if (hybridEnabled && bm25Enabled) {
+                const bm25Index = ensureBm25IndexForChunks(
+                    embeddingProvider.getName(),
+                    embeddingProvider.getDimensions(),
+                    scopedChunks
+                );
+
+                if (bm25Index) {
+                    const allowedIds = new Set(scopedChunks.map(chunk => chunk.id));
+                    const bm25RawResults = bm25Index.search(query, selectionBudget);
+                    const bm25Results = bm25RawResults.filter(result =>
+                        allowedIds.has(result.id) && !intentionChunkIds.has(result.id)
+                    );
+                    bm25CandidateCount = bm25Results.length;
+
+                    if (bm25Results.length > 0) {
+                        const fused = reciprocalRankFusion({
+                            vectorResults: vectorPool.map(item => ({ id: item.id, score: item.score })),
+                            bm25Results: bm25Results.map(item => ({ id: item.id, score: item.score })),
+                            limit: selectionBudget,
+                            k: 60
+                        });
+
+                        if (fused.length > 0) {
+                            bm25Fused = true;
+                            vectorResults = fused
+                                .map(entry => {
+                                    const info = chunkInfoById.get(entry.id);
+                                    if (!info) {
+                                        return null;
+                                    }
+
+                                    info.hybridScore = entry.score;
+                                    info.bm25Score = entry.bm25Score;
+                                    info.bm25Rank = entry.bm25Rank;
+                                    info.vectorRank = entry.vectorRank;
+                                    return info;
+                                })
+                                .filter(Boolean);
+                        }
+                    }
+                }
+            }
+
+            if (vectorResults.length === 0) {
+                vectorResults = vectorPool;
+            }
+
+            const hasSymbolBoost = symbolBoostEnabled && vectorResults.some(
+                candidate => typeof candidate.symbolBoost === 'number' && candidate.symbolBoost > 0
+            );
+
+            if (hasSymbolBoost && vectorResults.length > 1) {
+                vectorResults.sort((a, b) => {
+                    const scoreA = typeof a.score === 'number' ? a.score : 0;
+                    const scoreB = typeof b.score === 'number' ? b.score : 0;
+                    if (scoreB !== scoreA) {
+                        return scoreB - scoreA;
+                    }
+
+                    const boostA = typeof a.symbolBoost === 'number' ? a.symbolBoost : 0;
+                    const boostB = typeof b.symbolBoost === 'number' ? b.symbolBoost : 0;
+                    if (boostB !== boostA) {
+                        return boostB - boostA;
+                    }
+
+                    const hybridA = typeof a.hybridScore === 'number' ? a.hybridScore : Number.NEGATIVE_INFINITY;
+                    const hybridB = typeof b.hybridScore === 'number' ? b.hybridScore : Number.NEGATIVE_INFINITY;
+                    return hybridB - hybridA;
+                });
+            }
+
+            vectorResults = vectorResults.slice(0, remainingSlots);
+
+            if (vectorResults.length > 1 && normalizedScope.reranker === 'transformers') {
+                try {
+                    const reranked = await rerankCrossEncoder(query, vectorResults, {
+                        max: Math.min(RERANKER_MAX_CANDIDATES, vectorResults.length),
+                        getText: candidate => buildRerankerDocument(candidate),
+                        getScoreHint: candidate => extractRerankerScoreHint(candidate)
+                    });
+
+                    if (Array.isArray(reranked) && reranked.length === vectorResults.length) {
+                        vectorResults = reranked;
+                    }
+                } catch (error) {
+                    // Silent fallback when reranker is unavailable or fails
+                }
+            }
+        }
 
         // ===== PHASE 6: COMBINE RESULTS =====
+        const vectorSearchType = bm25Fused ? 'hybrid' : 'vector';
         const combinedResults = [
-            ...intentionResults,
-            ...vectorResults.map(result => ({
-                type: 'code',
-                lang: result.lang,
-                path: result.file_path,
-                sha: result.sha,
-                data: null, // Loaded on demand
-                meta: {
+            ...scopedIntentionResults,
+            ...vectorResults.map(result => {
+                const rawScore = typeof result.score === 'number' ? result.score : 0;
+                const meta = {
                     id: result.id,
                     symbol: result.symbol,
-                    score: result.score,
+                    score: Math.min(1, rawScore),
                     intent: result.pampa_intent,
                     description: result.pampa_description,
-                    searchType: 'vector'
+                    searchType: vectorSearchType,
+                    vectorScore: result.vectorScore
+                };
+
+                if (typeof result.hybridScore === 'number') {
+                    meta.hybridScore = result.hybridScore;
                 }
-            }))
+
+                if (typeof result.bm25Score === 'number') {
+                    meta.bm25Score = result.bm25Score;
+                }
+
+                if (typeof result.bm25Rank === 'number') {
+                    meta.bm25Rank = result.bm25Rank;
+                }
+
+                if (typeof result.vectorRank === 'number') {
+                    meta.vectorRank = result.vectorRank;
+                }
+
+                if (typeof result.rerankerScore === 'number') {
+                    meta.rerankerScore = result.rerankerScore;
+                }
+
+                if (typeof result.rerankerRank === 'number') {
+                    meta.rerankerRank = result.rerankerRank;
+                }
+
+                if (typeof result.symbolBoost === 'number' && result.symbolBoost > 0) {
+                    meta.symbolBoost = result.symbolBoost;
+                    if (Array.isArray(result.symbolBoostSources) && result.symbolBoostSources.length > 0) {
+                        meta.symbolBoostSources = result.symbolBoostSources;
+                    }
+                }
+
+                if (typeof rawScore === 'number' && rawScore > 1) {
+                    meta.scoreRaw = rawScore;
+                }
+
+                return {
+                    type: 'code',
+                    lang: result.lang,
+                    path: result.file_path,
+                    sha: result.sha,
+                    data: null, // Loaded on demand
+                    meta
+                };
+            })
         ];
 
         // If we still don't have enough results, add a message about it
@@ -975,13 +1598,17 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
                 message: `No relevant matches found for "${query}"`,
                 suggestion: 'Try broader search terms or check if the project is properly indexed',
                 provider: embeddingProvider.getName(),
+                scope: normalizedScope,
+                hybrid: { enabled: hybridEnabled, bm25Enabled },
+                symbolBoost: { enabled: symbolBoostEnabled, boosted: false },
+                reranker: normalizedScope.reranker,
                 results: []
             };
         }
 
         // ===== PHASE 7: LEARNING SYSTEM =====
         // If we found good results, record successful patterns for future learning
-        if (combinedResults.length > 0 && combinedResults[0].meta.score > 0.8) {
+        if (symbolBoostEnabled && combinedResults.length > 0 && combinedResults[0].meta.score > 0.8) {
             // Record the top result as a successful intention mapping
             await recordIntention(query, combinedResults[0].sha, combinedResults[0].meta.score, workingPath);
         }
@@ -989,10 +1616,22 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
         return {
             success: true,
             query,
-            searchType: intentionResults.length > 0 ? 'hybrid' : 'vector',
-            intentionResults: intentionResults.length,
+            searchType: bm25Fused || scopedIntentionResults.length > 0 ? 'hybrid' : 'vector',
+            intentionResults: scopedIntentionResults.length,
             vectorResults: vectorResults.length,
             provider: embeddingProvider.getName(),
+            scope: normalizedScope,
+            reranker: normalizedScope.reranker,
+            hybrid: {
+                enabled: hybridEnabled,
+                bm25Enabled,
+                fused: bm25Fused,
+                bm25Candidates: bm25CandidateCount
+            },
+            symbolBoost: {
+                enabled: symbolBoostEnabled,
+                boosted: symbolBoostEnabled && vectorResults.some(result => typeof result.symbolBoost === 'number' && result.symbolBoost > 0)
+            },
             results: combinedResults
         };
 
@@ -1003,6 +1642,10 @@ export async function searchCode(query, limit = 10, provider = 'auto', workingPa
             error: 'search_error',
             message: error.message,
             provider: embeddingProvider.getName(),
+            scope: normalizedScope,
+            hybrid: { enabled: hybridEnabled, bm25Enabled },
+            symbolBoost: { enabled: symbolBoostEnabled, boosted: false },
+            reranker: normalizedScope.reranker,
             results: []
         };
     }
@@ -1070,17 +1713,22 @@ export async function getOverview(limit = 20, workingPath = '.') {
 export async function getChunk(sha, workingPath = '.') {
     setBasePath(workingPath);
     const { chunkDir } = getPaths();
-    const chunkPath = path.join(chunkDir, `${sha}.gz`);
 
     try {
-        if (!fs.existsSync(chunkPath)) {
-            throw new Error(`Chunk ${sha} not found at ${chunkPath}`);
+        const result = readChunkFromDisk({ chunkDir, sha });
+        if (!result) {
+            const plainPath = path.join(chunkDir, `${sha}.gz`);
+            const encryptedPath = path.join(chunkDir, `${sha}.gz.enc`);
+            throw new Error(`Chunk ${sha} not found at ${plainPath} or ${encryptedPath}`);
         }
-
-        const compressed = fs.readFileSync(chunkPath);
-        const code = zlib.gunzipSync(compressed).toString('utf8');
-        return { success: true, code };
+        return { success: true, code: result.code };
     } catch (error) {
+        if (error && error.code === 'ENCRYPTION_KEY_REQUIRED') {
+            return {
+                success: false,
+                error: `Chunk ${sha} is encrypted. Configure PAMPA_ENCRYPTION_KEY to decrypt.`
+            };
+        }
         return { success: false, error: error.message };
     }
 }
@@ -1212,6 +1860,10 @@ export async function searchByIntention(query, workingPath = '.') {
         return { success: true, directMatch: false };
 
     } catch (error) {
+        if (error && typeof error.message === 'string' && error.message.includes('no such table: intention_cache')) {
+            return { success: false, directMatch: false, error: 'intention_cache_missing' };
+        }
+
         console.error('Error in searchByIntention:', error);
         return { success: false, directMatch: false, error: error.message };
     }
