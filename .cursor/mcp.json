@@ -4,7 +4,7 @@
         "command": "/bin/zsh",
         "args": [
           "-lc",
-          "/Users/manu/.nvm/versions/node/v20.19.2/bin/node src/mcp-server.js"
+          "/Users/manu/.nvm/versions/node/v23.11.1/bin/node src/mcp-server.js"
         ]
       }
     }

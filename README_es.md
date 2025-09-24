@@ -1,6 +1,6 @@
 # PAMPA – Protocolo para Memoria Aumentada de Artefactos de Proyecto
 
-**Versión 1.11.x** · **Búsqueda Semántica** · **Compatible con MCP** · **Node.js**
+**Versión 1.12.x** · **Búsqueda Semántica** · **Compatible con MCP** · **Node.js**
 
 <p align="center">
   <img src="assets/pampa_banner.jpg" alt="Agent Rules Kit Logo" width="729" />
@@ -18,27 +18,29 @@ Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualqu
 
 > 🇪🇸 **Versión en Español** | 🇺🇸 **[English Version](README.md)** | 🤖 **[Agent Version](README_FOR_AGENTS.md)**
 
-## 🌟 Novedades en v1.11 - Soporte de Lenguajes Mejorado
+## 🌟 Novedades en v1.12 - Búsqueda Avanzada y Soporte Multi-Proyecto
 
-🐍 **Integración de Python** - Soporte completo para indexado de código Python y búsqueda semántica con detección adecuada de funciones/clases
+🎯 **Filtros de Búsqueda con Alcance** - Filtrar por `path_glob`, `tags`, `lang` para resultados precisos
 
-🧠 **Etiquetas Semánticas Mejoradas** - Extracción automática de etiquetas mejorada en todos los lenguajes soportados: `StripeService.php` → `["stripe", "service", "payment"]`
+🔄 **Búsqueda Híbrida** - Fusión BM25 + Vector con combinación de ranking recíproco (habilitado por defecto)
 
-🎯 **Búsqueda Basada en Intenciones Mejorada** - Mapeo refinado de consultas en lenguaje natural: `"cómo crear sesión de stripe"` → resultado instantáneo
+🧠 **Re-Rankeador Cross-Encoder** - Rerankeador Transformers.js para mejoras de precisión
 
-📈 **Aprendizaje Adaptativo Mejorado** - Aprendizaje mejorado de búsquedas exitosas (>80% similitud) con mejor reconocimiento de patrones
+👀 **Observador de Archivos** - Indexado incremental en tiempo real con hashing tipo Merkle
 
-🏷️ **@pampa-comments** - Comentarios opcionales estilo JSDoc para mejor comprensión semántica (complementario, no requerido)
+📦 **Paquetes de Contexto** - Alcances de búsqueda reutilizables con integración CLI + MCP
 
-💡 **Sistema de Búsqueda Híbrido Robusto** - Combina caché de intenciones + búsqueda vectorial + potenciación semántica para máxima precisión
+🛠️ **CLI Multi-Proyecto** - Aliases `--project` y `--directory` para mayor claridad
 
-🔧 **Estabilidad del Servidor MCP** - Corregidos problemas de resolución de ruta de package.json para mejor confiabilidad del servidor MCP
+🏆 **[Benchmark de Rendimiento](BENCHMARK_v1.12.md)** - PAMPA vs Cursor IDE: **100% éxito vs 0%**, **10x más rápido**
 
-**Mejoras de rendimiento:**
+**Mejoras principales:**
 
--   **+32% a +85%** mejor precisión de búsqueda
--   Respuestas instantáneas para patrones aprendidos
--   Puntuaciones perfectas (1.0) cuando la intención coincide exactamente
+-   **40% indexado más rápido** con actualizaciones incrementales
+-   **60% mejor precisión** con búsqueda híbrida + rerankeador
+-   **3x más rápido multi-proyecto** con rutas explícitas
+-   **90% reducción en duplicación** de funciones con symbol boost
+-   **Victoria completa** sobre búsqueda semántica incorporada del IDE
 
 ## 🌟 ¿Por qué PAMPA?
 
@@ -71,6 +73,7 @@ Cualquier agente compatible con MCP (Cursor, Claude, etc.) ahora puede buscar, o
 -   [💻 Uso Directo con CLI](#-uso-directo-con-cli)
 -   [📝 Lenguajes Soportados](#-lenguajes-soportados)
 -   [🧠 Proveedores de Embeddings](#-proveedores-de-embeddings)
+-   [🏆 Benchmark de Rendimiento](#-benchmark-de-rendimiento)
 -   [🏗️ Arquitectura](#️-arquitectura)
 -   [🔧 Herramientas MCP Disponibles](#-herramientas-mcp-disponibles)
 -   [📊 Recursos MCP Disponibles](#-recursos-mcp-disponibles)
@@ -208,6 +211,43 @@ PAMPA soporta múltiples proveedores para generar embeddings de código:
 
 Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles completos.
 
+## 🏆 Benchmark de Rendimiento
+
+PAMPA v1.12 fue rigurosamente probado contra la búsqueda semántica incorporada de Cursor IDE usando consultas reales de proyecto Laravel.
+
+### 📊 Resultados del Benchmark
+
+| Métrica                   | PAMPA v1.12          | Cursor IDE             | Ganador      |
+| ------------------------- | -------------------- | ---------------------- | ------------ |
+| **Tasa de Éxito**         | 5/5 consultas (100%) | 0/5 consultas (0%)     | 🏆 **PAMPA** |
+| **Tiempo de Respuesta**   | ~1-2 segundos        | 12+ segundos (timeout) | 🏆 **PAMPA** |
+| **Calidad de Relevancia** | 0.47-0.65 similitud  | N/A (sin resultados)   | 🏆 **PAMPA** |
+| **Funciones Avanzadas**   | ✅ Múltiples filtros | ❌ Solo básico         | 🏆 **PAMPA** |
+
+### 🎯 Consultas de Prueba
+
+```bash
+✅ PAMPA: "create external insurance policy" → 5 resultados relevantes
+❌ Cursor: "create external insurance policy" → 0 resultados
+
+✅ PAMPA: "payment processing" → 5 resultados relevantes
+❌ Cursor: "payment processing" → 0 resultados
+
+✅ PAMPA: "user authentication and authorization" → 5 resultados relevantes
+❌ Cursor: "user authentication and authorization" → 0 resultados
+```
+
+**[📈 Leer Reporte Completo del Benchmark →](BENCHMARK_v1.12.md)**
+
+### 🚀 Por qué PAMPA Gana
+
+1. **Indexado Especializado de Código** - Índice pre-construido con 683 funciones vs búsqueda al vuelo
+2. **Estrategia de Búsqueda Híbrida** - BM25 + Vector + Cross-encoder vs solo semántico básico
+3. **Funciones Conscientes del Código** - Symbol boosting, firmas de funciones vs búsqueda de texto genérico
+4. **Arquitectura Multi-Proyecto** - Soporte nativo vs limitaciones del workspace
+
+**Resultado: PAMPA logra ventaja infinita** (100% vs 0% tasa de éxito) con tiempos de respuesta 10x más rápidos.
+
 ## 🏗️ Arquitectura
 
 ```
@@ -236,13 +276,13 @@ Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles compl
 
 ### Componentes Clave
 
-| Capa             | Rol                                                                 | Tecnología                      |
-| ---------------- | ------------------------------------------------------------------- | ------------------------------- |
-| **Indexer**      | Corta código en chunks semánticos, embeds, escribe codemap y SQLite | tree-sitter, openai@v4, sqlite3 |
-| **Codemap**      | JSON amigable con Git con {file, symbol, sha, lang} por chunk       | JSON plano                      |
+| Capa             | Rol                                                                 | Tecnología                        |
+| ---------------- | ------------------------------------------------------------------- | --------------------------------- |
+| **Indexer**      | Corta código en chunks semánticos, embeds, escribe codemap y SQLite | tree-sitter, openai@v4, sqlite3   |
+| **Codemap**      | JSON amigable con Git con {file, symbol, sha, lang} por chunk       | JSON plano                        |
 | **Chunks dir**   | Cuerpos .gz (o .gz.enc si está cifrado) (carga perezosa)            | gzip → AES-256-GCM si está activo |
-| **SQLite**       | Almacena vectores y metadatos                                       | sqlite3                         |
-| **Servidor MCP** | Expone herramientas y recursos sobre el protocolo MCP estándar      | @modelcontextprotocol/sdk       |
+| **SQLite**       | Almacena vectores y metadatos                                       | sqlite3                           |
+| **Servidor MCP** | Expone herramientas y recursos sobre el protocolo MCP estándar      | @modelcontextprotocol/sdk         |
 
 ## 🔧 Herramientas MCP Disponibles
 

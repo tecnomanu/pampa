@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import fs from 'node:fs/promises';
+import { test } from 'node:test';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
-import { chunkFixtures } from './fixtures/chunks.js';
-import { queryFixtures, getQueryVector } from './fixtures/queries.js';
 import {
-    precisionAt,
-    reciprocalRankAt,
+    averageMetric,
     ndcgAt,
-    averageMetric
+    precisionAt,
+    reciprocalRankAt
 } from '../../src/metrics/ir.js';
-import { __setTestProviderFactory, __resetTestProviderFactory } from '../../src/providers.js';
+import { __resetTestProviderFactory, __setTestProviderFactory } from '../../src/providers.js';
+import { chunkFixtures } from './fixtures/chunks.js';
+import { getQueryVector, queryFixtures } from './fixtures/queries.js';
 
 let sqliteAvailable = true;
 let sqlite3Module;
@@ -298,7 +298,7 @@ async function runScenario(tmpDir, scenario) {
 }
 
 if (!sqliteAvailable) {
-    test('search benchmark harness (skipped)', { skip: 'sqlite3 bindings not available in this environment' }, () => {});
+    test('search benchmark harness (skipped)', { skip: 'sqlite3 bindings not available in this environment' }, () => { });
 } else {
     const sqlite3 = sqlite3Module.default || sqlite3Module;
 
