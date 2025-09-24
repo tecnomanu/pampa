@@ -201,8 +201,8 @@ tu-proyecto/
 ├── .pampa/
 │   ├── pampa.db               # Base de datos SQLite
 │   └── chunks/                # Código comprimido
-│       ├── abc123.gz
-│       └── def456.gz
+│       ├── abc123.gz(.enc)
+│       └── def456.gz(.enc)
 └── [tu código...]
 ```
 

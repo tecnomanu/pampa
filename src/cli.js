@@ -6,6 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { indexProject } from './indexer.js';
 import { searchCode } from './service.js';
+import { readCodemap } from './codemap/io.js';
+import { buildScopeFiltersFromOptions } from './cli/commands/search.js';
+import { registerContextCommands } from './cli/commands/context.js';
+import { startWatch } from './indexer/watch.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,11 +27,12 @@ program
     .command('index [path]')
     .description('Index project and build/update pampa.codemap.json')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
+    .option('--encrypt <mode>', 'encrypt chunk payloads when PAMPA_ENCRYPTION_KEY is configured (on|off)')
     .action(async (projectPath = '.', options) => {
         console.log('Starting project indexing...');
         console.log(`Provider: ${options.provider}`);
         try {
-            await indexProject({ repoPath: projectPath, provider: options.provider });
+            await indexProject({ repoPath: projectPath, provider: options.provider, encrypt: options.encrypt });
             console.log('Indexing completed successfully');
         } catch (error) {
             console.error('ERROR during indexing:', error.message);
@@ -39,12 +44,13 @@ program
     .command('update [path]')
     .description('Update index by re-scanning all files (recommended after code changes)')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
+    .option('--encrypt <mode>', 'encrypt chunk payloads when PAMPA_ENCRYPTION_KEY is configured (on|off)')
     .action(async (projectPath = '.', options) => {
         console.log('🔄 Updating project index...');
         console.log(`Provider: ${options.provider}`);
         console.log('ℹ️  This will re-scan all files and update the database');
         try {
-            await indexProject({ repoPath: projectPath, provider: options.provider });
+            await indexProject({ repoPath: projectPath, provider: options.provider, encrypt: options.encrypt });
             console.log('✅ Index updated successfully');
             console.log('💡 Your AI agents now have access to the latest code changes');
         } catch (error) {
@@ -54,14 +60,80 @@ program
     });
 
 program
+    .command('watch [path]')
+    .description('Watch project files and incrementally update the index as changes occur')
+    .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
+    .option('-d, --debounce <ms>', 'debounce interval in milliseconds (default 500)', '500')
+    .option('--encrypt <mode>', 'encrypt chunk payloads when PAMPA_ENCRYPTION_KEY is configured (on|off)')
+    .action(async (projectPath = '.', options) => {
+        const parsedDebounce = Number.parseInt(options.debounce, 10);
+        const debounceMs = Number.isFinite(parsedDebounce) ? Math.max(parsedDebounce, 50) : undefined;
+
+        console.log(`👀 Watching ${projectPath} for changes...`);
+        console.log(`Provider: ${options.provider}`);
+        console.log(`Debounce window: ${debounceMs ?? 500}ms`);
+        if (typeof options.encrypt === 'string') {
+            console.log(`Encryption: ${options.encrypt}`);
+        }
+
+        try {
+            const controller = startWatch({
+                repoPath: projectPath,
+                provider: options.provider,
+                debounceMs,
+                encrypt: options.encrypt,
+                onBatch: ({ changed, deleted }) => {
+                    console.log(
+                        `🔁 Indexed ${changed.length} changed / ${deleted.length} deleted files`
+                    );
+                }
+            });
+
+            await controller.ready;
+            console.log('✅ Watcher active. Press Ctrl+C to stop.');
+
+            await new Promise(resolve => {
+                const shutdown = async () => {
+                    console.log('\nStopping watcher...');
+                    await controller.close();
+                    process.off('SIGINT', shutdown);
+                    process.off('SIGTERM', shutdown);
+                    resolve();
+                };
+
+                process.on('SIGINT', shutdown);
+                process.on('SIGTERM', shutdown);
+            });
+        } catch (error) {
+            console.error('❌ Failed to start watcher:', error.message);
+            process.exit(1);
+        }
+    });
+
+program
     .command('search <query> [path]')
+    .description('Search indexed code with optional path/tag/lang filters, provider overrides, reranker, and symbol-aware boosts')
     .option('-k, --limit <num>', 'maximum number of results', '10')
     .option('-p, --provider <provider>', 'embedding provider (auto|openai|transformers|ollama|cohere)', 'auto')
-    .description('Search code semantically in the indexed project')
+    .option('--path_glob <pattern...>', 'limit results to files matching the provided glob pattern(s)')
+    .option('--tags <tag...>', 'filter results to chunks tagged with the provided values')
+    .option('--lang <language...>', 'filter results to the specified languages (e.g. php, ts)')
+    .option('--reranker <mode>', 'reranker strategy (off|transformers)', 'off')
+    .option('--hybrid <mode>', 'toggle reciprocal-rank-fused hybrid search (on|off)', 'on')
+    .option('--bm25 <mode>', 'toggle BM25 keyword candidate generation (on|off)', 'on')
+    .option('--symbol_boost <mode>', 'toggle symbol-aware ranking boost (on|off)', 'on')
+    .addHelpText('after', `\nExamples:\n  $ pampa search "create checkout session" --path_glob "app/Services/**" --tags stripe --lang php\n  $ pampa search "payment intent status" --provider openai --reranker transformers\n  $ pampa search "token validation" --symbol_boost off\n`)
     .action(async (query, projectPath = '.', options) => {
         try {
             const limit = parseInt(options.limit);
-            const results = await searchCode(query, limit, options.provider, projectPath);
+            const { scope: scopeFilters, pack } = buildScopeFiltersFromOptions(options, projectPath);
+            if (pack) {
+                console.log(
+                    `Using context pack: ${pack.name || pack.key}` +
+                        (pack.description ? ` – ${pack.description}` : '')
+                );
+            }
+            const results = await searchCode(query, limit, options.provider, projectPath, scopeFilters);
 
             if (!results.success) {
                 console.log(`No results found for: "${query}"`);
@@ -74,6 +146,9 @@ program
                     console.log('  - Verify that the project is indexed (pampa index)');
                     console.log('  - Try with more general terms');
                     console.log(`  - Verify you use the same provider: --provider ${options.provider}`);
+                    if (scopeFilters.path_glob || scopeFilters.tags || scopeFilters.lang) {
+                        console.log('  - Try removing or adjusting scope filters');
+                    }
                 }
                 return;
             }
@@ -84,6 +159,9 @@ program
                 console.log('  - Verify that the project is indexed (pampa index)');
                 console.log('  - Try with more general terms');
                 console.log(`  - Verify you use the same provider: --provider ${options.provider}`);
+                if (scopeFilters.path_glob || scopeFilters.tags || scopeFilters.lang) {
+                    console.log('  - Try removing or adjusting scope filters');
+                }
                 return;
             }
 
@@ -103,6 +181,8 @@ program
             process.exit(1);
         }
     });
+
+registerContextCommands(program);
 
 program
     .command('mcp')
@@ -153,7 +233,7 @@ program
                 return;
             }
 
-            const codemap = JSON.parse(fs.readFileSync(codemapPath, 'utf8'));
+            const codemap = readCodemap(codemapPath);
             const chunks = Object.values(codemap);
 
             // Statistics by language

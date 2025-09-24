@@ -219,45 +219,134 @@ Once configured, your AI agent can:
 
 For direct terminal usage or manual project indexing:
 
-### Initial Project Indexing
+### Install the CLI
 
 ```bash
-# With local model (free, private)
+# Run without installing
+npx pampa --help
+
+# Or install globally (requires Node.js 20+)
+npm install -g pampa
+```
+
+### Index or update a project
+
+```bash
+# Index current repository with the best available provider
+npx pampa index
+
+# Force the local CPU embedding model (no API keys required)
 npx pampa index --provider transformers
 
-# Or with OpenAI (better quality, set OPENAI_API_KEY first)
-export OPENAI_API_KEY="your-api-key"
-npx pampa index --provider openai
+# Re-embed after code changes
+npx pampa update
 
-# Or auto-detect best available
-npx pampa index
+# Inspect indexed stats at any time
+npx pampa info
 ```
 
-### Available Commands
+> Indexing writes `.pampa/` (SQLite database + chunk store) and `pampa.codemap.json`. Commit the codemap to git so teammates and CI re-use the same metadata.
 
-| Command                                  | Purpose                                            |
-| ---------------------------------------- | -------------------------------------------------- |
-| `npx pampa index [path] [--provider X]`  | Scan project, update SQLite and pampa.codemap.json |
-| `npx pampa update [path] [--provider X]` | Update index after code changes (recommended)      |
-| `npx pampa mcp`                          | Start MCP server (stdio)                           |
-| `npx pampa search <query> [-k N] [-p X]` | Fast local vector search (debug)                   |
-| `npx pampa info`                         | Show indexed project statistics                    |
+| Command                                  | Purpose                                                    |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `npx pampa index [path] [--provider X]`  | Create or refresh the full index at the provided path      |
+| `npx pampa update [path] [--provider X]` | Force a full re-scan (helpful after large refactors)       |
+| `npx pampa watch [path] [--provider X]`  | Incrementally update the index as files change             |
+| `npx pampa search <query>`               | Hybrid BM25 + vector search with optional scoped filters   |
+| `npx pampa context <list|show|use>`      | Manage reusable context packs for search defaults          |
+| `npx pampa mcp`                          | Start the MCP stdio server for editor/agent integrations   |
 
-### Usage Example
+### Search with scoped filters & ranking flags
+
+`pampa search` supports the same filters used by MCP clients. Combine glob patterns, semantic tags, language filters, provider overrides, and ranking controls:
+
+| Flag / option        | Effect                                                                 |
+| -------------------- | ---------------------------------------------------------------------- |
+| `--path_glob`        | Limit results to matching files (`"app/Services/**"`)                  |
+| `--tags`             | Filter by codemap tags (`stripe`, `checkout`)                          |
+| `--lang`             | Filter by language (`php`, `ts`, `py`)                                 |
+| `--provider`         | Override embedding provider for the query (`openai`, `transformers`)   |
+| `--reranker`         | Reorder top results with the Transformers cross-encoder (`off`|`transformers`) |
+| `--hybrid` / `--bm25`| Toggle reciprocal-rank fusion or the BM25 candidate stage (`on`|`off`)  |
+| `--symbol_boost`     | Toggle symbol-aware ranking boost that favors signature matches (`on`|`off`) |
+| `-k, --limit`        | Cap returned results (defaults to 10)                                  |
 
 ```bash
-# Index your project
-npx pampa index
+# Narrow to service files tagged stripe in PHP
+npx pampa search "create checkout session" --path_glob "app/Services/**" --tags stripe --lang php
 
-# View statistics
-npx pampa info
+# Use OpenAI embeddings but keep hybrid fusion enabled
+npx pampa search "payment intent status" --provider openai --hybrid on --bm25 on
 
-# Search functions
-npx pampa search "user validation"
+# Reorder top candidates locally
+npx pampa search "oauth middleware" --reranker transformers --limit 5
 
-# Start MCP server for agents
-npx pampa mcp
+# Disable signature boosts for literal keyword hunts
+npx pampa search "token validation" --symbol_boost off
 ```
+
+> PAMPA extracts function signatures and lightweight call graphs with tree-sitter. When symbol boosts are enabled, queries that mention a specific method, class, or a directly connected helper will receive an extra scoring bump.
+
+> When a context pack is active, the CLI prints the pack name before executing the search. Any explicit flag overrides the pack defaults.
+
+### Manage context packs
+
+Store JSON packs in `.pampa/contextpacks/*.json` to capture reusable defaults:
+
+```jsonc
+// .pampa/contextpacks/stripe-backend.json
+{
+  "name": "Stripe Backend",
+  "description": "Scopes searches to the Stripe service layer",
+  "path_glob": ["app/Services/**"],
+  "tags": ["stripe"],
+  "lang": ["php"],
+  "reranker": "transformers",
+  "hybrid": "off"
+}
+```
+
+```bash
+# List packs and highlight the active one
+npx pampa context list
+
+# Inspect the full JSON definition
+npx pampa context show stripe-backend
+
+# Activate scoped defaults (flags still win if provided explicitly)
+npx pampa context use stripe-backend
+
+# Clear the active pack (use "none" or "clear")
+npx pampa context use clear
+```
+
+**MCP tip:** The MCP tool `use_context_pack` mirrors the CLI. Agents can switch packs mid-session and every subsequent `search_code` call inherits those defaults until cleared.
+
+### Watch and incrementally re-index
+
+```bash
+# Watch the repository with a 750 ms debounce and local embeddings
+npx pampa watch --provider transformers --debounce 750
+```
+
+The watcher batches filesystem events, reuses the Merkle hash store in `.pampa/merkle.json`, and only re-embeds touched files. Press `Ctrl+C` to stop.
+
+### Run the synthetic benchmark harness
+
+```bash
+npm run bench
+```
+
+The harness seeds a deterministic Laravel + TypeScript corpus and prints a summary table with Precision@1, MRR@5, and nDCG@10 for Base, Hybrid, and Hybrid+Cross-Encoder modes. Customise scenarios via flags or environment variables:
+
+- `npm run bench -- --hybrid=off` – run vector-only evaluation
+- `npm run bench -- --reranker=transformers` – force the cross-encoder
+- `PAMPA_BENCH_MODES=base,hybrid npm run bench` – limit to specific modes
+- `PAMPA_BENCH_BM25=off npm run bench` – disable BM25 candidate generation
+
+Benchmark runs never download external models when `PAMPA_MOCK_RERANKER_TESTS=1` (enabled by default inside the harness).
+
+An end-to-end context pack example lives in [`examples/contextpacks/stripe-backend.json`](examples/contextpacks/stripe-backend.json).
 
 ## 🧠 Embedding Providers
 
@@ -278,7 +367,7 @@ PAMPA supports multiple providers for generating code embeddings:
 ┌──────────── Repo (git) ─────────-──┐
 │ app/… src/… package.json etc.      │
 │ pampa.codemap.json                 │
-│ .pampa/chunks/*.gz                 │
+│ .pampa/chunks/*.gz(.enc)          │
 │ .pampa/pampa.db (SQLite)           │
 └────────────────────────────────────┘
           ▲       ▲
@@ -304,7 +393,7 @@ PAMPA supports multiple providers for generating code embeddings:
 | -------------- | ----------------------------------------------------------------- | ------------------------------- |
 | **Indexer**    | Cuts code into semantic chunks, embeds, writes codemap and SQLite | tree-sitter, openai@v4, sqlite3 |
 | **Codemap**    | Git-friendly JSON with {file, symbol, sha, lang} per chunk        | Plain JSON                      |
-| **Chunks dir** | .gz code bodies (lazy loading)                                    | gzip                            |
+| **Chunks dir** | .gz code bodies (or .gz.enc when encrypted) (lazy loading)        | gzip → AES-256-GCM when enabled |
 | **SQLite**     | Stores vectors and metadata                                       | sqlite3                         |
 | **MCP Server** | Exposes tools and resources over standard MCP protocol            | @modelcontextprotocol/sdk       |
 | **Logging**    | Debug and error logging in project directory                      | File-based logs                 |
@@ -332,7 +421,7 @@ Get complete code of a specific chunk.
 -   **Parameters**:
     -   `sha` (string) - SHA of the code chunk to retrieve (obtained from search_code results)
     -   `path` (string, optional) - **PROJECT ROOT** directory path (same as used in search_code)
--   **Chunk Location**: `{path}/.pampa/chunks/{sha}.gz`
+-   **Chunk Location**: `{path}/.pampa/chunks/{sha}.gz` or `{sha}.gz.enc`
 -   **Returns**: Complete source code
 
 ### `index_project`
@@ -422,6 +511,28 @@ Template for finding existing similar functions.
 | **Custom embeddings** | Export `OPENAI_API_KEY` or switch OpenAI for any provider that returns `vector: number[]` |
 | **Security**          | Run behind a reverse proxy with authentication                                            |
 | **VS Code Plugin**    | Point an MCP WebView client to your local server                                          |
+
+## 🔐 Encrypting the Chunk Store
+
+PAMPA can encrypt chunk bodies at rest using AES-256-GCM. Configure it like this:
+
+1. Export a 32-byte key in base64 or hex form:
+
+    ```bash
+    export PAMPA_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+    ```
+
+2. Index with encryption enabled (skips plaintext writes even if stale files exist):
+
+    ```bash
+    npx pampa index --encrypt on
+    ```
+
+    Without `--encrypt`, PAMPA auto-encrypts when the environment key is present. Use `--encrypt off` to force plaintext (e.g., for debugging).
+
+3. All new chunks are stored as `.gz.enc` and require the same key for CLI or MCP chunk retrieval. Missing or corrupt keys surface clear errors instead of leaking data.
+
+Existing plaintext archives remain readable, so you can enable encryption incrementally or rotate keys by re-indexing.
 
 ## 🤝 Contributing
 

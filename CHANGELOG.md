@@ -1,6 +1,20 @@
 ## [1.11.2](https://github.com/tecnomanu/pampa/compare/v1.11.1...v1.11.2) (2025-09-14)
 
 
+### Features
+
+* **context:** add reusable context packs with CLI + MCP integration
+* **ranking:** score symbol mentions higher by extracting tree-sitter signatures and call-graph neighbors with an optional `--symbol_boost` flag
+* **search:** add scoped semantic search filters for CLI and MCP workflows
+* **codemap:** extend chunk metadata with synonyms, weights, and telemetry helpers for adaptive ranking
+
+### Features
+
+* **search:** 🤖 add cross-encoder Transformers reranker for post-fusion precision boosts with optional mocking controls
+* **search:** 🚀 add hybrid BM25 + vector fusion with reciprocal rank blending for better recall on keyword-heavy queries
+* **indexer:** 👀 add chokidar-powered watch mode with merkle hashing for incremental updates
+* **bench:** 📊 introduce synthetic search benchmark harness reporting Precision@1, MRR@5, and nDCG@10
+
 ### Bug Fixes
 
 * **mcp:** 🐛 correct package.json path in MCP server ([f95cc7f](https://github.com/tecnomanu/pampa/commit/f95cc7fe41619d08c2fd8665ad42fac3ba0b36e9))
@@ -126,6 +140,21 @@
 ### Bug Fixes
 
 -   add path parameter to MCP tools for working directory support ([9226cb7](https://github.com/tecnomanu/pampa/commit/9226cb73947d1b9a79ed62cca30e5a46f1e2f976))
+
+# [Unreleased]
+
+### Features
+
+-   add optional AES-256-GCM chunk encryption with `.gz.enc` storage, `PAMPA_ENCRYPTION_KEY`, and the `--encrypt` CLI flag
+
+### Bug Fixes
+
+-   declare `zod@^3.25.6` as a runtime dependency so schema validation works out of the box
+
+### Documentation
+
+-   refresh README and CLI help with scoped search flags, context packs, watcher usage, and the synthetic bench workflow
+-   document chunk encryption workflow and key management in the README
 
 ## [1.3.3](https://github.com/tecnomanu/pampa/compare/v1.3.2...v1.3.3) (2025-05-29)
 

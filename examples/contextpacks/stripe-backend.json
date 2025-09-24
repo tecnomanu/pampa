@@ -1,0 +1,9 @@
+{
+    "name": "Stripe Backend",
+    "description": "Scopes searches to the Stripe service layer",
+    "path_glob": ["app/Services/**"],
+    "tags": ["stripe"],
+    "lang": ["php"],
+    "reranker": "transformers",
+    "hybrid": "off"
+}

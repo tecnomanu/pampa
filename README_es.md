@@ -214,7 +214,7 @@ Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles compl
 ┌──────────── Repo (git) ─────────-──┐
 │ app/… src/… package.json etc.      │
 │ pampa.codemap.json                 │
-│ .pampa/chunks/*.gz                 │
+│ .pampa/chunks/*.gz(.enc)          │
 │ .pampa/pampa.db (SQLite)           │
 └────────────────────────────────────┘
           ▲       ▲
@@ -240,7 +240,7 @@ Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles compl
 | ---------------- | ------------------------------------------------------------------- | ------------------------------- |
 | **Indexer**      | Corta código en chunks semánticos, embeds, escribe codemap y SQLite | tree-sitter, openai@v4, sqlite3 |
 | **Codemap**      | JSON amigable con Git con {file, symbol, sha, lang} por chunk       | JSON plano                      |
-| **Chunks dir**   | Cuerpos .gz de código (carga perezosa)                              | gzip                            |
+| **Chunks dir**   | Cuerpos .gz (o .gz.enc si está cifrado) (carga perezosa)            | gzip → AES-256-GCM si está activo |
 | **SQLite**       | Almacena vectores y metadatos                                       | sqlite3                         |
 | **Servidor MCP** | Expone herramientas y recursos sobre el protocolo MCP estándar      | @modelcontextprotocol/sdk       |
 
@@ -267,7 +267,7 @@ Obtiene el código completo de un chunk específico.
 -   **Parámetros**:
     -   `sha` (string) - SHA del chunk de código a obtener (obtenido de search_code)
     -   `path` (string, opcional) - **DIRECTORIO RAÍZ** del proyecto (mismo que en search_code)
--   **Ubicación Chunk**: `{path}/.pampa/chunks/{sha}.gz`
+-   **Ubicación Chunk**: `{path}/.pampa/chunks/{sha}.gz` o `{sha}.gz.enc`
 -   **Retorna**: Código fuente completo
 
 ### `index_project`

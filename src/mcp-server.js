@@ -7,6 +7,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import * as service from './service.js';
+import { resolveScopeWithPack } from './context/packs.js';
+import { registerUseContextPackTool } from './mcp/tools/useContextPack.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +19,7 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'packa
 // Global debug mode and working directory
 let debugMode = process.argv.includes('--debug');
 let currentWorkingPath = '.';
+let sessionContextPack = null;
 
 // ============================================================================
 // ERROR LOGGING SYSTEM
@@ -186,6 +189,17 @@ const server = new McpServer({
     version: packageJson.version
 });
 
+registerUseContextPackTool(server, {
+    getWorkingPath: () => currentWorkingPath,
+    setSessionPack: (pack) => {
+        sessionContextPack = pack;
+    },
+    clearSessionPack: () => {
+        sessionContextPack = null;
+    },
+    errorLogger
+});
+
 // ============================================================================
 // TOOLS - Allow LLMs to perform actions
 // ============================================================================
@@ -203,13 +217,45 @@ server.tool(
         query: z.string().min(2, "Query cannot be empty").describe("Semantic search query (e.g. 'authentication function', 'error handling')"),
         limit: z.number().optional().default(10).describe("Maximum number of results to return"),
         provider: z.string().optional().default("auto").describe("Embedding provider (auto|openai|transformers|ollama|cohere)"),
-        path: z.string().optional().default(".").describe("PROJECT ROOT directory path where PAMPA database is located (the directory containing .pampa/ folder)")
+        path: z.string().optional().default(".").describe("PROJECT ROOT directory path where PAMPA database is located (the directory containing .pampa/ folder)"),
+        path_glob: z.union([z.string(), z.array(z.string())]).optional().describe("Optional glob pattern(s) to limit search scope"),
+        tags: z.union([z.array(z.string()), z.string()]).optional().describe("Optional list of tags to filter results"),
+        lang: z.union([z.array(z.string()), z.string()]).optional().describe("Optional list of languages to filter results"),
+        reranker: z.enum(['off', 'transformers']).optional().default('off').describe("Optional reranker strategy flag"),
+        hybrid: z.enum(['on', 'off']).optional().default('on').describe("Enable hybrid semantic + keyword fusion"),
+        bm25: z.enum(['on', 'off']).optional().default('on').describe("Enable BM25 keyword retrieval stage"),
+        symbol_boost: z.enum(['on', 'off']).optional().default('on').describe("Enable symbol-aware ranking boost")
     },
-    async ({ query, limit, provider, path: workingPath }) => {
-        const context = { query, limit, provider, workingPath, timestamp: new Date().toISOString() };
+    async ({ query, limit, provider, path: workingPath, path_glob, tags, lang, reranker, hybrid, bm25, symbol_boost }) => {
+        const timestamp = new Date().toISOString();
+        const rawProvider = typeof provider === 'string' ? provider : 'auto';
+        const cleanProvider = rawProvider && rawProvider.trim().length > 0 ? rawProvider.trim() : 'auto';
+        const rawPath = typeof workingPath === 'string' ? workingPath : '.';
+        const cleanPath = rawPath && rawPath.trim().length > 0 ? rawPath.trim() : '.';
+
+        const { scope: scopeFilters, pack: activePack } = resolveScopeWithPack(
+            { path_glob, tags, lang, reranker, hybrid, bm25, symbol_boost },
+            { basePath: cleanPath, sessionPack: sessionContextPack }
+        );
+
+        const hasActiveScope = Boolean(
+            (scopeFilters.path_glob && scopeFilters.path_glob.length > 0) ||
+            (scopeFilters.tags && scopeFilters.tags.length > 0) ||
+            (scopeFilters.lang && scopeFilters.lang.length > 0)
+        );
+
+        const context = {
+            query,
+            limit,
+            provider: cleanProvider,
+            workingPath: cleanPath,
+            scope: scopeFilters,
+            timestamp,
+            contextPack: activePack
+        };
 
         // Update logger working path
-        errorLogger.updateWorkingPath(workingPath || '.');
+        errorLogger.updateWorkingPath(cleanPath || '.');
 
         if (debugMode) {
             errorLogger.debugLog('search_code tool called', context);
@@ -239,14 +285,12 @@ server.tool(
             }
 
             const cleanQuery = query.trim();
-            const cleanProvider = provider ? provider.trim() : 'auto';
-            const cleanPath = workingPath ? workingPath.trim() : '.';
 
             if (cleanQuery.length === 0) {
                 await errorLogger.logAsync(new Error('Query empty after trim'), {
                     ...context,
                     originalQuery: query,
-                    cleanQuery: cleanQuery
+                    cleanQuery
                 });
 
                 return {
@@ -285,8 +329,8 @@ server.tool(
             }
 
             const results = await safeAsyncCall(
-                () => service.searchCode(cleanQuery, limit, cleanProvider, cleanPath),
-                { ...context, query: cleanQuery, provider: cleanProvider, workingPath: cleanPath, step: 'searchCode_call' }
+                () => service.searchCode(cleanQuery, limit, cleanProvider, cleanPath, scopeFilters),
+                { ...context, query: cleanQuery, provider: cleanProvider, workingPath: cleanPath, scope: scopeFilters, step: 'searchCode_call' }
             );
 
             if (!results.success) {
@@ -312,7 +356,12 @@ server.tool(
                             text: `No results found.\n\n` +
                                 `Message: ${results.message}\n` +
                                 `Suggestion: ${results.suggestion}\n\n` +
-                                `Note: Database should be at ${cleanPath}/.pampa/pampa.db`
+                                `Note: Database should be at ${cleanPath}/.pampa/pampa.db` +
+                                (hasActiveScope ? `\n\nFilters applied: ${JSON.stringify({
+                                    path_glob: scopeFilters.path_glob || [],
+                                    tags: scopeFilters.tags || [],
+                                    lang: scopeFilters.lang || []
+                                })}\nTry relaxing scope filters to broaden the search.` : '')
                         }],
                         isError: false
                     };
@@ -322,7 +371,8 @@ server.tool(
                             type: "text",
                             text: `No relevant matches found.\n\n` +
                                 `Message: ${results.message}\n` +
-                                `Suggestion: ${results.suggestion}`
+                                `Suggestion: ${results.suggestion}` +
+                                (hasActiveScope ? `\n\nCurrent scope filters:\n  • path_glob: ${(scopeFilters.path_glob || []).join(', ') || 'none'}\n  • tags: ${(scopeFilters.tags || []).join(', ') || 'none'}\n  • lang: ${(scopeFilters.lang || []).join(', ') || 'none'}\nConsider removing filters to expand results.` : '')
                         }],
                         isError: false
                     };
@@ -348,14 +398,21 @@ server.tool(
                 errorLogger.debugLog('search_code completed successfully', {
                     resultsCount: results.results.length,
                     provider: results.provider,
-                    query: cleanQuery
+                    query: cleanQuery,
+                    scope: scopeFilters,
+                    contextPack: activePack
                 });
             }
+
+            const packLine = activePack
+                ? `Context pack: ${activePack.name || activePack.key}${activePack.description ? ` – ${activePack.description}` : ''}\n`
+                : '';
 
             return {
                 content: [{
                     type: "text",
                     text: `Found ${results.results.length} results for: "${cleanQuery}"\n` +
+                        packLine +
                         `Provider: ${results.provider}\n` +
                         `Database: ${cleanPath}/.pampa/pampa.db\n\n` +
                         resultText
@@ -389,7 +446,7 @@ server.tool(
 /**
  * Tool to get complete code of a specific chunk
  * 
- * IMPORTANT: This tool retrieves code chunks from `{path}/.pampa/chunks/{sha}.gz`
+ * IMPORTANT: This tool retrieves code chunks from `{path}/.pampa/chunks/{sha}.gz` (or `{sha}.gz.enc` when encryption is enabled)
  * The path parameter must point to the same project directory used in search_code.
  * The SHA is obtained from search_code results.
  */
@@ -461,7 +518,7 @@ server.tool(
                     content: [{
                         type: "text",
                         text: `Error: ${result.message}\n\n` +
-                            `Expected chunk file: ${cleanPath}/.pampa/chunks/${cleanSha}.gz\n` +
+                            `Expected chunk file: ${cleanPath}/.pampa/chunks/${cleanSha}.gz(.enc)\n` +
                             `Tip: Make sure the SHA is correct and the path points to the same project directory used in search_code.`
                     }],
                     isError: true
@@ -471,7 +528,7 @@ server.tool(
             if (debugMode) {
                 errorLogger.debugLog('get_code_chunk completed successfully', {
                     sha: cleanSha,
-                    chunkPath: `${cleanPath}/.pampa/chunks/${cleanSha}.gz`,
+                    chunkPath: `${cleanPath}/.pampa/chunks/${cleanSha}.gz(.enc)`,
                     contentLength: result.code.length
                 });
             }
@@ -493,7 +550,7 @@ server.tool(
                         `Details:\n` +
                         `- Requested SHA: ${sha}\n` +
                         `- Project path: ${workingPath}\n` +
-                        `- Expected chunk file: ${workingPath}/.pampa/chunks/${sha}.gz\n` +
+                        `- Expected chunk file: ${workingPath}/.pampa/chunks/${sha}.gz(.enc)\n` +
                         `- Timestamp: ${context.timestamp}\n\n` +
                         `Error logged to ${errorLogger.errorLogPath}\n\n` +
                         `Troubleshooting:\n` +
