@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/tecnomanu/pampa/compare/v1.11.2...v1.12.0) (2025-09-24)
+
+
+### Features
+
+* **v1.12:** ✨ implement 10 major features for advanced search & multi-project support ([4c68b6b](https://github.com/tecnomanu/pampa/commit/4c68b6be3f3cd7e96521f4884c76c2dc3fffbf3a))
+
 ## [1.12.0] - 2025-01-29 - 🚀 Major Feature Release
 
 ### 🎯 NEW: Advanced Search & Multi-Project Support
