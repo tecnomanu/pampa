@@ -1,3 +1,10 @@
+## [1.12.2](https://github.com/tecnomanu/pampa/compare/v1.12.1...v1.12.2) (2025-09-25)
+
+
+### Bug Fixes
+
+* **docs:** 🐛 fix markdown table formatting in performance metrics ([deb8857](https://github.com/tecnomanu/pampa/commit/deb88571ceaa91ef0c73e0114692169b3407e377))
+
 ## [1.12.1](https://github.com/tecnomanu/pampa/compare/v1.12.0...v1.12.1) (2025-09-25)
 
 
