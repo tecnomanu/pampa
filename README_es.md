@@ -218,6 +218,7 @@ PAMPA v1.12 utiliza una arquitectura especializada para búsqueda semántica de 
 ### 📊 Métricas de Rendimiento
 
 **Resultados del Benchmark Sintético:**
+
 ```
 | Configuración | P@1   | MRR@5 | nDCG@10 |
 | ------------- | ----- | ----- | ------- |
@@ -230,7 +231,7 @@ PAMPA v1.12 utiliza una arquitectura especializada para búsqueda semántica de 
 
 ```bash
 # Búsqueda de funciones de autenticación
-pampa search "user authentication" 
+pampa search "user authentication"
 → AuthController::login, UserService::authenticate, etc.
 
 # Búsqueda de procesamiento de pagos

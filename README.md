@@ -371,6 +371,7 @@ PAMPA v1.12 uses a specialized architecture for semantic code search with measur
 ### 📊 Performance Metrics
 
 **Synthetic Benchmark Results:**
+
 ```
 | Setting    | P@1   | MRR@5 | nDCG@10 |
 | ---------- | ----- | ----- | ------- |
@@ -383,7 +384,7 @@ PAMPA v1.12 uses a specialized architecture for semantic code search with measur
 
 ```bash
 # Search for authentication functions
-pampa search "user authentication" 
+pampa search "user authentication"
 → AuthController::login, UserService::authenticate, etc.
 
 # Search for payment processing
