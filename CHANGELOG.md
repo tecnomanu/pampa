@@ -1,3 +1,11 @@
+## [1.12.1](https://github.com/tecnomanu/pampa/compare/v1.12.0...v1.12.1) (2025-09-25)
+
+
+### Bug Fixes
+
+* **docs:** 🐛 remove inflated benchmark claims and sensitive project data ([bc5a374](https://github.com/tecnomanu/pampa/commit/bc5a37432a75321a9a56b5234c57c90666cb50af))
+* **docs:** 🐛 remove inflated IDE comparisons and project-specific references ([a9f6807](https://github.com/tecnomanu/pampa/commit/a9f68072a83d2b57553dcc1c2c71057b19def789))
+
 # [1.12.0](https://github.com/tecnomanu/pampa/compare/v1.11.2...v1.12.0) (2025-09-24)
 
 
