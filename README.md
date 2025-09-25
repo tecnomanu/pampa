@@ -32,7 +32,7 @@ Give your AI agents an always-updated, queryable memory of any codebase – with
 
 🛠️ **Multi-Project CLI** - `--project` and `--directory` aliases for clarity
 
-🏆 **[Performance Benchmark](BENCHMARK_v1.12.md)** - PAMPA vs Cursor IDE: **100% success rate vs 0%**, **10x faster**
+🏆 **[Performance Analysis](BENCHMARK_v1.12.md)** - Architectural comparison with general-purpose IDE tools
 
 **Major improvements:**
 
@@ -40,7 +40,7 @@ Give your AI agents an always-updated, queryable memory of any codebase – with
 -   **60% better precision** with hybrid search + reranker
 -   **3x faster multi-project** operations with explicit paths
 -   **90% reduction in duplicate** function creation with symbol boost
--   **Complete victory** over IDE built-in semantic search
+-   **Specialized architecture** for semantic code search
 
 ## 🌟 Why PAMPA?
 
@@ -364,42 +364,47 @@ PAMPA supports multiple providers for generating code embeddings:
 
 **Recommendation:** Use **Transformers.js** for personal development (free and private) or **OpenAI** for maximum quality.
 
-## 🏆 Performance Benchmark
+## 🏆 Performance Analysis
 
-PAMPA v1.12 was rigorously tested against Cursor IDE's built-in semantic search using real-world Laravel project queries.
+PAMPA v1.12 uses a specialized architecture for semantic code search with measurable results.
 
-### 📊 Benchmark Results
+### 📊 Performance Metrics
 
-| Metric                | PAMPA v1.12          | Cursor IDE            | Winner       |
-| --------------------- | -------------------- | --------------------- | ------------ |
-| **Success Rate**      | 5/5 queries (100%)   | 0/5 queries (0%)      | 🏆 **PAMPA** |
-| **Response Time**     | ~1-2 seconds         | 12+ seconds (timeout) | 🏆 **PAMPA** |
-| **Relevance Quality** | 0.47-0.65 similarity | N/A (no results)      | 🏆 **PAMPA** |
-| **Advanced Features** | ✅ Multiple filters  | ❌ Basic only         | 🏆 **PAMPA** |
-
-### 🎯 Test Queries
-
-```bash
-✅ PAMPA: "create external insurance policy" → 5 relevant results
-❌ Cursor: "create external insurance policy" → 0 results
-
-✅ PAMPA: "payment processing" → 5 relevant results
-❌ Cursor: "payment processing" → 0 results
-
-✅ PAMPA: "user authentication and authorization" → 5 relevant results
-❌ Cursor: "user authentication and authorization" → 0 results
+**Synthetic Benchmark Results:**
+```
+| Setting    | P@1   | MRR@5 | nDCG@10 |
+| ---------- | ----- | ----- | ------- |
+| Base       | 0.750 | 0.833 | 0.863   |
+| Hybrid     | 0.875 | 0.917 | 0.934   |
+| Hybrid+CE  | 1.000 | 0.958 | 0.967   |
 ```
 
-**[📈 Read Full Benchmark Report →](BENCHMARK_v1.12.md)**
+### 🎯 Search Examples
 
-### 🚀 Why PAMPA Wins
+```bash
+# Search for authentication functions
+pampa search "user authentication" 
+→ AuthController::login, UserService::authenticate, etc.
 
-1. **Specialized Code Indexing** - Pre-built index with 683 functions vs on-the-fly search
-2. **Hybrid Search Strategy** - BM25 + Vector + Cross-encoder vs basic semantic only
-3. **Code-Aware Features** - Symbol boosting, function signatures vs generic text search
-4. **Multi-Project Architecture** - Native support vs workspace limitations
+# Search for payment processing
+pampa search "payment processing"
+→ PaymentService::process, CheckoutController::create, etc.
 
-**Result: PAMPA achieves infinite advantage** (100% vs 0% success rate) with 10x faster response times.
+# Search with specific filters
+pampa search "database operations" --lang php --path_glob "app/Models/**"
+→ UserModel::save, OrderModel::find, etc.
+```
+
+**[📈 Read Full Analysis →](BENCHMARK_v1.12.md)**
+
+### 🚀 Architectural Advantages
+
+1. **Specialized Indexing** - Persistent index with function-level granularity
+2. **Hybrid Search** - BM25 + Vector + Cross-encoder reranking combination
+3. **Code Awareness** - Symbol boosting, AST analysis, function signatures
+4. **Multi-Project** - Native support for context across different codebases
+
+**Result: Optimized architecture** for semantic code search with verifiable metrics.
 
 ## 🏗️ Architecture
 

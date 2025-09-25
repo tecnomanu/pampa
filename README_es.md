@@ -32,7 +32,7 @@ Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualqu
 
 🛠️ **CLI Multi-Proyecto** - Aliases `--project` y `--directory` para mayor claridad
 
-🏆 **[Benchmark de Rendimiento](BENCHMARK_v1.12.md)** - PAMPA vs Cursor IDE: **100% éxito vs 0%**, **10x más rápido**
+🏆 **[Análisis de Rendimiento](BENCHMARK_v1.12.md)** - Comparación arquitectural con herramientas generales de IDE
 
 **Mejoras principales:**
 
@@ -40,7 +40,7 @@ Dale a tus agentes de IA una memoria siempre actualizada y consultable de cualqu
 -   **60% mejor precisión** con búsqueda híbrida + rerankeador
 -   **3x más rápido multi-proyecto** con rutas explícitas
 -   **90% reducción en duplicación** de funciones con symbol boost
--   **Victoria completa** sobre búsqueda semántica incorporada del IDE
+-   **Arquitectura especializada** para búsqueda semántica de código
 
 ## 🌟 ¿Por qué PAMPA?
 
@@ -211,42 +211,47 @@ PAMPA soporta múltiples proveedores para generar embeddings de código:
 
 Ver [PROVEEDORES_EMBEDDINGS.md](./PROVEEDORES_EMBEDDINGS.md) para detalles completos.
 
-## 🏆 Benchmark de Rendimiento
+## 🏆 Análisis de Rendimiento
 
-PAMPA v1.12 fue rigurosamente probado contra la búsqueda semántica incorporada de Cursor IDE usando consultas reales de proyecto Laravel.
+PAMPA v1.12 utiliza una arquitectura especializada para búsqueda semántica de código con resultados medibles.
 
-### 📊 Resultados del Benchmark
+### 📊 Métricas de Rendimiento
 
-| Métrica                   | PAMPA v1.12          | Cursor IDE             | Ganador      |
-| ------------------------- | -------------------- | ---------------------- | ------------ |
-| **Tasa de Éxito**         | 5/5 consultas (100%) | 0/5 consultas (0%)     | 🏆 **PAMPA** |
-| **Tiempo de Respuesta**   | ~1-2 segundos        | 12+ segundos (timeout) | 🏆 **PAMPA** |
-| **Calidad de Relevancia** | 0.47-0.65 similitud  | N/A (sin resultados)   | 🏆 **PAMPA** |
-| **Funciones Avanzadas**   | ✅ Múltiples filtros | ❌ Solo básico         | 🏆 **PAMPA** |
-
-### 🎯 Consultas de Prueba
-
-```bash
-✅ PAMPA: "create external insurance policy" → 5 resultados relevantes
-❌ Cursor: "create external insurance policy" → 0 resultados
-
-✅ PAMPA: "payment processing" → 5 resultados relevantes
-❌ Cursor: "payment processing" → 0 resultados
-
-✅ PAMPA: "user authentication and authorization" → 5 resultados relevantes
-❌ Cursor: "user authentication and authorization" → 0 resultados
+**Resultados del Benchmark Sintético:**
+```
+| Configuración | P@1   | MRR@5 | nDCG@10 |
+| ------------- | ----- | ----- | ------- |
+| Base          | 0.750 | 0.833 | 0.863   |
+| Híbrida       | 0.875 | 0.917 | 0.934   |
+| Híbrida+CE    | 1.000 | 0.958 | 0.967   |
 ```
 
-**[📈 Leer Reporte Completo del Benchmark →](BENCHMARK_v1.12.md)**
+### 🎯 Ejemplos de Búsqueda
 
-### 🚀 Por qué PAMPA Gana
+```bash
+# Búsqueda de funciones de autenticación
+pampa search "user authentication" 
+→ AuthController::login, UserService::authenticate, etc.
 
-1. **Indexado Especializado de Código** - Índice pre-construido con 683 funciones vs búsqueda al vuelo
-2. **Estrategia de Búsqueda Híbrida** - BM25 + Vector + Cross-encoder vs solo semántico básico
-3. **Funciones Conscientes del Código** - Symbol boosting, firmas de funciones vs búsqueda de texto genérico
-4. **Arquitectura Multi-Proyecto** - Soporte nativo vs limitaciones del workspace
+# Búsqueda de procesamiento de pagos
+pampa search "payment processing"
+→ PaymentService::process, CheckoutController::create, etc.
 
-**Resultado: PAMPA logra ventaja infinita** (100% vs 0% tasa de éxito) con tiempos de respuesta 10x más rápidos.
+# Búsqueda con filtros específicos
+pampa search "database operations" --lang php --path_glob "app/Models/**"
+→ UserModel::save, OrderModel::find, etc.
+```
+
+**[📈 Leer Análisis Completo →](BENCHMARK_v1.12.md)**
+
+### 🚀 Ventajas Arquitecturales
+
+1. **Indexado Especializado** - Índice persistente con granularidad a nivel función
+2. **Búsqueda Híbrida** - Combinación BM25 + Vector + Cross-encoder reranking
+3. **Consciencia del Código** - Symbol boosting, análisis AST, firmas de funciones
+4. **Multi-Proyecto** - Soporte nativo para contexto entre diferentes bases de código
+
+**Resultado: Arquitectura optimizada** para búsqueda semántica de código con métricas verificables.
 
 ## 🏗️ Arquitectura
 
